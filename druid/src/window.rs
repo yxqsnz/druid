@@ -58,6 +58,7 @@ pub struct Window<T> {
     pub(crate) last_anim: Option<Instant>,
     pub(crate) last_mouse_pos: Option<Point>,
     pub(crate) focus: Option<WidgetId>,
+    last_focus: Option<WidgetId>,
     pub(crate) handle: WindowHandle,
     pub(crate) timers: HashMap<TimerToken, WidgetId>,
     pub(crate) transparent: bool,
@@ -86,6 +87,7 @@ impl<T> Window<T> {
             last_anim: None,
             last_mouse_pos: None,
             focus: None,
+            last_focus: None,
             handle,
             timers: HashMap::new(),
             ext_handle,
@@ -576,6 +578,7 @@ impl<T: Data> Window<T> {
             if old != new {
                 let event = LifeCycle::Internal(InternalLifeCycle::RouteFocusChanged { old, new });
                 self.lifecycle(queue, &event, data, env, false);
+                self.last_focus = self.focus;
                 self.focus = new;
                 // check if the newly focused widget has an IME session, and
                 // notify the system if so.
@@ -635,7 +638,7 @@ impl<T: Data> Window<T> {
 
     fn widget_for_focus_request(&self, focus: FocusChange) -> Option<WidgetId> {
         match focus {
-            FocusChange::Resign => None,
+            FocusChange::Resign => self.last_focus,
             FocusChange::Focus(id) => Some(id),
             FocusChange::Next => self.widget_from_focus_chain(true),
             FocusChange::Previous => self.widget_from_focus_chain(false),
