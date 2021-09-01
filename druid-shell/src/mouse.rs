@@ -14,7 +14,6 @@
 
 //! Common types for representing mouse events and state
 
-use crate::backend;
 use crate::kurbo::{Point, Vec2};
 use crate::piet::ImageBuf;
 use crate::Modifiers;
@@ -257,14 +256,12 @@ pub enum Cursor {
     Pointer,
     Crosshair,
 
-    #[deprecated(note = "this will be removed in future because it is not available on windows")]
-    OpenHand,
     NotAllowed,
     ResizeLeftRight,
     ResizeUpDown,
     // The platform cursor should be small. Any image data that it uses should be shared (i.e.
     // behind an `Arc` or using a platform API that does the sharing).
-    Custom(backend::window::CustomCursor),
+    // Custom(backend::window::CustomCursor),
 }
 
 /// A platform-independent description of a custom cursor.
@@ -297,11 +294,9 @@ impl std::fmt::Debug for Cursor {
             Cursor::IBeam => write!(f, "Cursor::IBeam"),
             Cursor::Pointer => write!(f, "Cursor::Pointer"),
             Cursor::Crosshair => write!(f, "Cursor::Crosshair"),
-            Cursor::OpenHand => write!(f, "Cursor::OpenHand"),
             Cursor::NotAllowed => write!(f, "Cursor::NotAllowed"),
             Cursor::ResizeLeftRight => write!(f, "Cursor::ResizeLeftRight"),
             Cursor::ResizeUpDown => write!(f, "Cursor::ResizeUpDown"),
-            Cursor::Custom(_) => write!(f, "Cursor::Custom"),
         }
     }
 }

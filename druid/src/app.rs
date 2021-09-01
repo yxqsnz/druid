@@ -24,6 +24,7 @@ use crate::window::WindowId;
 use crate::{AppDelegate, Data, Env, LocalizedString, Menu, Widget};
 
 use druid_shell::WindowState;
+use winit::event_loop::{ControlFlow, EventLoop};
 
 /// A function that modifies the initial environment.
 type EnvSetupFn<T> = dyn FnOnce(&mut Env, &T);
@@ -256,14 +257,29 @@ impl<T: Data> AppLauncher<T> {
             self.ext_event_host,
         );
 
+        let event_loop = EventLoop::new();
+
         for desc in self.windows {
-            let window = desc.build_native(&mut state)?;
+            let window = desc.build_native(&mut state, &event_loop)?;
             window.show();
         }
 
-        let handler = AppHandler::new(state);
-        app.run(Some(Box::new(handler)));
-        Ok(())
+        event_loop.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Wait;
+            match event {
+                winit::event::Event::WindowEvent { window_id, event } => match event {
+                    _ => (),
+                },
+                winit::event::Event::RedrawRequested(window_id) => {
+                    if let Some(handler) = state.inner.borrow().handlers.get(&window_id) {}
+                }
+                _ => (),
+            }
+        });
+
+        // let handler = AppHandler::new(state);
+        // app.run(Some(Box::new(handler)));
+        // Ok(())
     }
 }
 
@@ -380,24 +396,30 @@ impl WindowConfig {
     }
 
     /// Apply this window configuration to the passed in WindowBuilder
-    pub fn apply_to_builder(&self, builder: &mut WindowBuilder) {
-        if let Some(resizable) = self.resizable {
-            builder.resizable(resizable);
-        }
+    pub fn apply_to_builder(&self, builder: WindowBuilder) -> WindowBuilder {
+        let mut builder = if let Some(resizable) = self.resizable {
+            builder.resizable(resizable)
+        } else {
+            builder
+        };
 
         if let Some(show_titlebar) = self.show_titlebar {
             builder.show_titlebar(show_titlebar);
         }
 
-        if let Some(size) = self.size {
-            builder.set_size(size);
+        let builder = if let Some(size) = self.size {
+            builder.set_size(size)
         } else if let WindowSizePolicy::Content = self.size_policy {
-            builder.set_size(Size::new(0., 0.));
-        }
+            builder.set_size(Size::new(0., 0.))
+        } else {
+            builder
+        };
 
-        if let Some(position) = self.position {
-            builder.set_position(position);
-        }
+        let mut builder = if let Some(position) = self.position {
+            builder.set_position(position)
+        } else {
+            builder
+        };
 
         if let Some(transparent) = self.transparent {
             builder.set_transparent(transparent);
@@ -407,12 +429,16 @@ impl WindowConfig {
             builder.set_level(level)
         }
 
-        if let Some(state) = self.state {
-            builder.set_window_state(state);
-        }
+        let builder = if let Some(state) = self.state {
+            builder.set_window_state(state)
+        } else {
+            builder
+        };
 
         if let Some(min_size) = self.min_size {
-            builder.set_min_size(min_size);
+            builder.set_min_size(min_size)
+        } else {
+            builder
         }
     }
 
@@ -592,7 +618,8 @@ impl<T: Data> WindowDesc<T> {
     pub(crate) fn build_native(
         self,
         state: &mut AppState<T>,
+        event_loop: &EventLoop<()>,
     ) -> Result<WindowHandle, PlatformError> {
-        state.build_native_window(self.id, self.pending, self.config)
+        state.build_native_window(self.id, self.pending, self.config, event_loop)
     }
 }

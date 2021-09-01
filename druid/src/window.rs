@@ -14,6 +14,7 @@
 
 //! Management of multiple windows.
 
+use druid_shell::piet::WgpuRenderer;
 use std::collections::{HashMap, VecDeque};
 use std::mem;
 use tracing::{error, info, info_span};
@@ -60,6 +61,7 @@ pub struct Window<T> {
     pub(crate) last_mouse_pos: Option<Point>,
     pub(crate) focus: Option<WidgetId>,
     pub(crate) handle: WindowHandle,
+    pub(crate) renderer: WgpuRenderer,
     pub(crate) timers: HashMap<TimerToken, WidgetId>,
     pub(crate) transparent: bool,
     pub(crate) ime_handlers: Vec<(TextFieldToken, TextFieldRegistration)>,
@@ -609,15 +611,16 @@ impl<T: Data> Window<T> {
     /// This will be called from outside the main app state in order to avoid
     /// reentrancy problems.
     pub(crate) fn ime_invalidation_fn(&self, widget: WidgetId) -> Option<Box<ImeUpdateFn>> {
-        let token = self
-            .ime_handlers
-            .iter()
-            .find(|(_, reg)| reg.widget_id == widget)
-            .map(|(t, _)| *t)?;
-        let window_handle = self.handle.clone();
-        Some(Box::new(move |event| {
-            window_handle.update_text_field(token, event)
-        }))
+        None
+        // let token = self
+        //     .ime_handlers
+        //     .iter()
+        //     .find(|(_, reg)| reg.widget_id == widget)
+        //     .map(|(t, _)| *t)?;
+        // let window_handle = self.handle.clone();
+        // Some(Box::new(move |event| {
+        //     window_handle.update_text_field(token, event)
+        // }))
     }
 
     /// Release a lock on an IME session, returning a `WidgetId` if the lock was mutable.

@@ -44,7 +44,7 @@ extern crate gtk_rs as gtk;
 pub use image;
 
 pub use kurbo;
-pub use piet_common as piet;
+pub use piet_wgpu as piet;
 
 // Reexport the version of `raw_window_handle` we are using.
 #[cfg(feature = "raw-win-handle")]
@@ -54,7 +54,7 @@ pub use raw_window_handle;
 mod util;
 
 mod application;
-mod backend;
+// mod backend;
 mod clipboard;
 mod common_util;
 mod dialog;
@@ -68,7 +68,7 @@ mod scale;
 mod screen;
 mod window;
 
-pub mod platform;
+// pub mod platform;
 pub mod text;
 
 pub use application::{AppHandler, Application};

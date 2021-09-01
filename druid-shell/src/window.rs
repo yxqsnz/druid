@@ -15,10 +15,10 @@
 //! Platform independent window types.
 
 use std::any::Any;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::application::Application;
-use crate::backend::window as backend;
 use crate::common_util::Counter;
 use crate::dialog::{FileDialogOptions, FileInfo};
 use crate::error::Error;
@@ -29,9 +29,11 @@ use crate::mouse::{Cursor, CursorDesc, MouseEvent};
 use crate::region::Region;
 use crate::scale::Scale;
 use crate::text::{Event, InputHandler};
-use piet_common::PietText;
-#[cfg(feature = "raw-win-handle")]
+use piet_wgpu::PietText;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use winit::dpi::{LogicalPosition, LogicalSize};
+use winit::event_loop::EventLoopWindowTarget;
+use winit::window::CursorIcon;
 
 /// A token that uniquely identifies a running timer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
@@ -86,7 +88,7 @@ impl TextFieldToken {
 //NOTE: this has a From<backend::Handle> impl for construction
 /// A handle that can enqueue tasks on the window loop.
 #[derive(Clone)]
-pub struct IdleHandle(backend::IdleHandle);
+pub struct IdleHandle();
 
 impl IdleHandle {
     /// Add an idle handler, which is called (once) when the message loop
@@ -99,14 +101,11 @@ impl IdleHandle {
     where
         F: FnOnce(&mut dyn WinHandler) + Send + 'static,
     {
-        self.0.add_idle_callback(callback)
     }
 
     /// Request a callback from the runloop. Your `WinHander::idle` method will
     /// be called with the `token` that was passed in.
-    pub fn schedule_idle(&mut self, token: IdleToken) {
-        self.0.add_idle_token(token)
-    }
+    pub fn schedule_idle(&mut self, token: IdleToken) {}
 }
 
 /// A token that uniquely identifies a idle schedule.
@@ -169,36 +168,47 @@ pub enum WindowState {
 }
 
 /// A handle to a platform window object.
-#[derive(Clone, Default)]
-pub struct WindowHandle(backend::WindowHandle);
+#[derive(Clone)]
+pub struct WindowHandle(Arc<winit::window::Window>);
 
 impl WindowHandle {
+    pub fn id(&self) -> winit::window::WindowId {
+        self.0.id()
+    }
     /// Make this window visible.
     ///
     /// This is part of the initialization process; it should only be called
     /// once, when a window is first created.
-    pub fn show(&self) {
-        self.0.show()
-    }
+    pub fn show(&self) {}
 
     /// Close the window.
-    pub fn close(&self) {
-        self.0.close()
-    }
+    pub fn close(&self) {}
 
     /// Set whether the window should be resizable
     pub fn resizable(&self, resizable: bool) {
-        self.0.resizable(resizable)
+        self.0.set_resizable(resizable);
     }
 
     /// Sets the state of the window.
     pub fn set_window_state(&mut self, state: WindowState) {
-        self.0.set_window_state(state);
+        match state {
+            WindowState::Maximized => self.0.set_maximized(true),
+            WindowState::Minimized => self.0.set_minimized(true),
+            WindowState::Restored => {
+                self.0.set_maximized(false);
+                self.0.set_minimized(false);
+            }
+        }
     }
 
     /// Gets the state of the window.
     pub fn get_window_state(&self) -> WindowState {
-        self.0.get_window_state()
+        let maximized = self.0.is_maximized();
+        if maximized {
+            WindowState::Maximized
+        } else {
+            WindowState::Restored
+        }
     }
 
     /// Informs the system that the current location of the mouse should be treated as part of the
@@ -207,19 +217,17 @@ impl WindowHandle {
     /// function in response to every relevant [`WinHandler::mouse_move`].
     ///
     /// This is currently only implemented on Windows.
-    pub fn handle_titlebar(&self, val: bool) {
-        self.0.handle_titlebar(val);
-    }
+    pub fn handle_titlebar(&self, val: bool) {}
 
     /// Set whether the window should show titlebar.
-    pub fn show_titlebar(&self, show_titlebar: bool) {
-        self.0.show_titlebar(show_titlebar)
-    }
+    pub fn show_titlebar(&self, show_titlebar: bool) {}
 
     /// Sets the position of the window in [display points](crate::Scale), relative to the origin of the
     /// virtual screen.
     pub fn set_position(&self, position: impl Into<Point>) {
-        self.0.set_position(position.into())
+        let point: Point = position.into();
+        self.0
+            .set_outer_position(LogicalPosition::new(point.x, point.y));
     }
 
     /// Returns the position of the top left corner of the window in
@@ -227,7 +235,11 @@ impl WindowHandle {
     ///
     /// [display points]: crate::Scale
     pub fn get_position(&self) -> Point {
-        self.0.get_position()
+        let point = self
+            .0
+            .outer_position()
+            .map(|p| Point::new(p.x.into(), p.y.into()));
+        point.unwrap_or(Point::ZERO)
     }
 
     /// Returns the insets of the window content from its position and size in [display points].
@@ -244,7 +256,26 @@ impl WindowHandle {
     ///
     /// [display points]: crate::Scale
     pub fn content_insets(&self) -> Insets {
-        self.0.content_insets()
+        let outer_size = self.0.outer_size();
+        let outer_position = self
+            .0
+            .outer_position()
+            .map(|p| Point::new(p.x.into(), p.y.into()))
+            .unwrap_or(Point::ZERO);
+        let outer_rect = Size::new(outer_size.width.into(), outer_size.height.into())
+            .to_rect()
+            .with_origin(outer_position);
+
+        let inner_size = self.0.inner_size();
+        let inner_position = self
+            .0
+            .inner_position()
+            .map(|p| Point::new(p.x.into(), p.y.into()))
+            .unwrap_or(Point::ZERO);
+        let inner_rect = Size::new(inner_size.width.into(), outer_size.height.into())
+            .to_rect()
+            .with_origin(inner_position);
+        outer_rect - inner_rect
     }
 
     /// Set the window's size in [display points].
@@ -258,14 +289,17 @@ impl WindowHandle {
     ///
     /// [display points]: crate::Scale
     pub fn set_size(&self, size: impl Into<Size>) {
-        self.0.set_size(size.into())
+        let size: Size = size.into();
+        self.0
+            .set_inner_size(LogicalSize::new(size.width, size.height));
     }
 
     /// Gets the window size, in [display points].
     ///
     /// [display points]: crate::Scale
     pub fn get_size(&self) -> Size {
-        self.0.get_size()
+        let outer_size = self.0.outer_size();
+        Size::new(outer_size.width.into(), outer_size.height.into())
     }
 
     /// Sets the [`WindowLevel`](crate::WindowLevel), the z-order in the Window system / compositor
@@ -273,14 +307,10 @@ impl WindowHandle {
     /// We do not currently have a getter method, mostly because the system's levels aren't a
     /// perfect one-to-one map to `druid_shell`'s levels. A getter method may be added in the
     /// future.
-    pub fn set_level(&self, level: WindowLevel) {
-        self.0.set_level(level)
-    }
+    pub fn set_level(&self, level: WindowLevel) {}
 
     /// Bring this window to the front of the window stack and give it focus.
-    pub fn bring_to_front_and_focus(&self) {
-        self.0.bring_to_front_and_focus()
-    }
+    pub fn bring_to_front_and_focus(&self) {}
 
     /// Request that [`prepare_paint`] and [`paint`] be called next time there's the opportunity to
     /// render another frame. This differs from [`invalidate`] and [`invalidate_rect`] in that it
@@ -290,18 +320,16 @@ impl WindowHandle {
     /// [`invalidate_rect`]: WindowHandle::invalidate_rect
     /// [`paint`]: WinHandler::paint
     /// [`prepare_paint`]: WinHandler::prepare_paint
-    pub fn request_anim_frame(&self) {
-        self.0.request_anim_frame();
-    }
+    pub fn request_anim_frame(&self) {}
 
     /// Request invalidation of the entire window contents.
     pub fn invalidate(&self) {
-        self.0.invalidate();
+        self.0.request_redraw();
     }
 
     /// Request invalidation of a region of the window.
     pub fn invalidate_rect(&self, rect: Rect) {
-        self.0.invalidate_rect(rect);
+        self.0.request_redraw();
     }
 
     /// Set the title for this menu.
@@ -310,13 +338,11 @@ impl WindowHandle {
     }
 
     /// Set the top-level menu for this window.
-    pub fn set_menu(&self, menu: Menu) {
-        self.0.set_menu(menu.into_inner())
-    }
+    pub fn set_menu(&self, menu: Menu) {}
 
     /// Get access to a type that can perform text layout.
     pub fn text(&self) -> PietText {
-        self.0.text()
+        PietText::new()
     }
 
     /// Register a new text input receiver for this window.
@@ -329,24 +355,20 @@ impl WindowHandle {
     ///
     /// Returns the `TextFieldToken` associated with this new text input.
     pub fn add_text_field(&self) -> TextFieldToken {
-        self.0.add_text_field()
+        TextFieldToken(0)
     }
 
     /// Unregister a previously registered text input receiver.
     ///
     /// If `token` is the text field currently focused, the platform automatically
     /// sets the focused field to `None`.
-    pub fn remove_text_field(&self, token: TextFieldToken) {
-        self.0.remove_text_field(token)
-    }
+    pub fn remove_text_field(&self, token: TextFieldToken) {}
 
     /// Notify the platform that the focused text input receiver has changed.
     ///
     /// This must be called any time focus changes to a different text input, or
     /// when focus switches away from a text input.
-    pub fn set_focused_text_field(&self, active_field: Option<TextFieldToken>) {
-        self.0.set_focused_text_field(active_field)
-    }
+    pub fn set_focused_text_field(&self, active_field: Option<TextFieldToken>) {}
 
     /// Notify the platform that some text input state has changed, such as the
     /// selection, contents, etc.
@@ -354,9 +376,7 @@ impl WindowHandle {
     /// This method should *never* be called in response to edits from a
     /// `InputHandler`; only in response to changes from the application:
     /// scrolling, remote edits, etc.
-    pub fn update_text_field(&self, token: TextFieldToken, update: Event) {
-        self.0.update_text_field(token, update)
-    }
+    pub fn update_text_field(&self, token: TextFieldToken, update: Event) {}
 
     /// Schedule a timer.
     ///
@@ -369,16 +389,25 @@ impl WindowHandle {
     /// like blinking a cursor or triggering tooltips, not for anything
     /// requiring precision.
     pub fn request_timer(&self, deadline: Duration) -> TimerToken {
-        self.0.request_timer(instant::Instant::now() + deadline)
+        TimerToken(0)
     }
 
     /// Set the cursor icon.
     pub fn set_cursor(&mut self, cursor: &Cursor) {
-        self.0.set_cursor(cursor)
+        let cursor = match cursor {
+            Cursor::Arrow => CursorIcon::Arrow,
+            Cursor::IBeam => CursorIcon::Text,
+            Cursor::Pointer => CursorIcon::Hand,
+            Cursor::Crosshair => CursorIcon::Crosshair,
+            Cursor::NotAllowed => CursorIcon::NotAllowed,
+            Cursor::ResizeLeftRight => CursorIcon::ColResize,
+            Cursor::ResizeUpDown => CursorIcon::RowResize,
+        };
+        self.0.set_cursor_icon(cursor);
     }
 
     pub fn make_cursor(&self, desc: &CursorDesc) -> Option<Cursor> {
-        self.0.make_cursor(desc)
+        None
     }
 
     /// Prompt the user to choose a file to open.
@@ -387,7 +416,7 @@ impl WindowHandle {
     /// `druid-shell`, and the [`WinHandler::open_file`] method will be called when the dialog is
     /// closed.
     pub fn open_file(&mut self, options: FileDialogOptions) -> Option<FileDialogToken> {
-        self.0.open_file(options)
+        None
     }
 
     /// Prompt the user to choose a path for saving.
@@ -396,19 +425,17 @@ impl WindowHandle {
     /// `druid-shell`, and the [`WinHandler::save_as`] method will be called when the dialog is
     /// closed.
     pub fn save_as(&mut self, options: FileDialogOptions) -> Option<FileDialogToken> {
-        self.0.save_as(options)
+        None
     }
 
     /// Display a pop-up menu at the given position.
     ///
     /// `pos` is in the coordinate space of the window.
-    pub fn show_context_menu(&self, menu: Menu, pos: Point) {
-        self.0.show_context_menu(menu.into_inner(), pos)
-    }
+    pub fn show_context_menu(&self, menu: Menu, pos: Point) {}
 
     /// Get a handle that can be used to schedule an idle task.
     pub fn get_idle_handle(&self) -> Option<IdleHandle> {
-        self.0.get_idle_handle().map(IdleHandle)
+        None
     }
 
     /// Get the DPI scale of the window.
@@ -417,11 +444,11 @@ impl WindowHandle {
     /// the platform DPI changes. This means you should not stash it and rely on it later; it is
     /// only guaranteed to be valid for the current pass of the runloop.
     pub fn get_scale(&self) -> Result<Scale, Error> {
-        self.0.get_scale().map_err(Into::into)
+        let scale = self.0.scale_factor();
+        Ok(Scale::new(scale, scale))
     }
 }
 
-#[cfg(feature = "raw-win-handle")]
 unsafe impl HasRawWindowHandle for WindowHandle {
     fn raw_window_handle(&self) -> RawWindowHandle {
         self.0.raw_window_handle()
@@ -429,22 +456,20 @@ unsafe impl HasRawWindowHandle for WindowHandle {
 }
 
 /// A builder type for creating new windows.
-pub struct WindowBuilder(backend::WindowBuilder);
+pub struct WindowBuilder(winit::window::WindowBuilder);
 
 impl WindowBuilder {
     /// Create a new `WindowBuilder`.
     ///
     /// Takes the [`Application`](crate::Application) that this window is for.
     pub fn new(app: Application) -> WindowBuilder {
-        WindowBuilder(backend::WindowBuilder::new(app.backend_app))
+        WindowBuilder(winit::window::WindowBuilder::new())
     }
 
     /// Set the [`WinHandler`] for this window.
     ///
     /// This is the object that will receive callbacks from this window.
-    pub fn set_handler(&mut self, handler: Box<dyn WinHandler>) {
-        self.0.set_handler(handler)
-    }
+    pub fn set_handler(&mut self, handler: Box<dyn WinHandler>) {}
 
     /// Set the window's initial drawing area size in [display points].
     ///
@@ -456,8 +481,11 @@ impl WindowBuilder {
     /// [`WinHandler::size`] method.
     ///
     /// [display points]: crate::Scale
-    pub fn set_size(&mut self, size: Size) {
-        self.0.set_size(size)
+    pub fn set_size(mut self, size: Size) -> Self {
+        self.0 = self
+            .0
+            .with_inner_size(LogicalSize::new(size.width, size.height));
+        self
     }
 
     /// Set the window's minimum drawing area size in [display points].
@@ -468,58 +496,69 @@ impl WindowBuilder {
     /// The platform might increase the size a tiny bit due to DPI.
     ///
     /// [display points]: crate::Scale
-    pub fn set_min_size(&mut self, size: Size) {
-        self.0.set_min_size(size)
+    pub fn set_min_size(mut self, size: Size) -> Self {
+        self.0 = self
+            .0
+            .with_min_inner_size(LogicalSize::new(size.width, size.height));
+        self
     }
 
     /// Set whether the window should be resizable.
-    pub fn resizable(&mut self, resizable: bool) {
-        self.0.resizable(resizable)
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.0 = self.0.with_resizable(resizable);
+        self
     }
 
     /// Set whether the window should have a titlebar and decorations.
-    pub fn show_titlebar(&mut self, show_titlebar: bool) {
-        self.0.show_titlebar(show_titlebar)
-    }
+    pub fn show_titlebar(&mut self, show_titlebar: bool) {}
 
     /// Set whether the window background should be transparent
-    pub fn set_transparent(&mut self, transparent: bool) {
-        self.0.set_transparent(transparent)
-    }
+    pub fn set_transparent(&mut self, transparent: bool) {}
 
     /// Sets the initial window position in [display points], relative to the origin of the
     /// virtual screen.
     ///
     /// [display points]: crate::Scale
-    pub fn set_position(&mut self, position: Point) {
-        self.0.set_position(position);
+    pub fn set_position(mut self, position: Point) -> Self {
+        self.0 = self
+            .0
+            .with_position(LogicalPosition::new(position.x, position.y));
+        self
     }
 
     /// Sets the initial [`WindowLevel`].
-    pub fn set_level(&mut self, level: WindowLevel) {
-        self.0.set_level(level);
-    }
+    pub fn set_level(&mut self, level: WindowLevel) {}
 
     /// Set the window's initial title.
-    pub fn set_title(&mut self, title: impl Into<String>) {
-        self.0.set_title(title)
+    pub fn set_title(mut self, title: impl Into<String>) -> Self {
+        self.0 = self.0.with_title(title);
+        self
     }
 
     /// Set the window's menu.
-    pub fn set_menu(&mut self, menu: Menu) {
-        self.0.set_menu(menu.into_inner())
-    }
+    pub fn set_menu(&mut self, menu: Menu) {}
 
     /// Sets the initial state of the window.
-    pub fn set_window_state(&mut self, state: WindowState) {
-        self.0.set_window_state(state);
+    pub fn set_window_state(mut self, state: WindowState) -> Self {
+        match state {
+            WindowState::Maximized => self.0 = self.0.with_maximized(true),
+            WindowState::Minimized => (),
+            WindowState::Restored => (),
+        }
+        self
     }
 
     /// Attempt to construct the platform window.
     ///
     /// If this fails, your application should exit.
-    pub fn build(self) -> Result<WindowHandle, Error> {
-        self.0.build().map(WindowHandle).map_err(Into::into)
+    pub fn build<T: 'static>(
+        self,
+        window_target: &EventLoopWindowTarget<T>,
+    ) -> Result<WindowHandle, Error> {
+        self.0
+            .build(window_target)
+            .map(|w| WindowHandle(Arc::new(w)))
+            .map_err(|e| Error::Other(std::sync::Arc::new(anyhow::anyhow!("{}", e))))
     }
 }
 
@@ -558,7 +597,7 @@ pub trait WinHandler {
     /// Request the handler to paint the window contents.  `invalid` is the region in [display
     /// points](crate::Scale) that needs to be repainted; painting outside the invalid region will
     /// have no effect.
-    fn paint(&mut self, piet: &mut piet_common::Piet, invalid: &Region);
+    fn paint(&mut self, piet: &mut piet_wgpu::Piet, invalid: &Region);
 
     /// Called when the resources need to be rebuilt.
     ///
@@ -695,20 +734,4 @@ pub trait WinHandler {
 
     /// Get a reference to the handler state. Used mostly by idle handlers.
     fn as_any(&mut self) -> &mut dyn Any;
-}
-
-impl From<backend::WindowHandle> for WindowHandle {
-    fn from(src: backend::WindowHandle) -> WindowHandle {
-        WindowHandle(src)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use static_assertions as sa;
-
-    sa::assert_not_impl_any!(WindowHandle: Send, Sync);
-    sa::assert_impl_all!(IdleHandle: Send);
 }
