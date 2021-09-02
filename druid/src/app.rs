@@ -21,9 +21,9 @@ use crate::shell::{Application, Error as PlatformError, WindowBuilder, WindowHan
 use crate::widget::LabelText;
 use crate::win_handler::{AppHandler, AppState};
 use crate::window::WindowId;
-use crate::{AppDelegate, Data, Env, LocalizedString, Menu, Widget};
+use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, Widget};
 
-use druid_shell::WindowState;
+use druid_shell::{winit_key, KbKey, KeyEvent, KeyState, Modifiers, WindowState};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 /// A function that modifies the initial environment.
@@ -268,10 +268,69 @@ impl<T: Data> AppLauncher<T> {
             *control_flow = ControlFlow::Wait;
             match event {
                 winit::event::Event::WindowEvent { window_id, event } => match event {
+                    winit::event::WindowEvent::Resized(size) => {
+                        let size = Size::new(size.width.into(), size.height.into());
+                        let event = Event::WindowSize(size);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::ModifiersChanged(winit_mods) => {
+                        let mut mods = Modifiers::empty();
+                        if winit_mods.shift() {
+                            mods.set(Modifiers::SHIFT, true);
+                        }
+                        if winit_mods.ctrl() {
+                            mods.set(Modifiers::CONTROL, true);
+                        }
+                        if winit_mods.alt() {
+                            mods.set(Modifiers::ALT, true);
+                        }
+                        if winit_mods.logo() {
+                            mods.set(Modifiers::META, true);
+                        }
+
+                        state.set_mods(&window_id, mods);
+                    }
+                    winit::event::WindowEvent::ReceivedCharacter(c) => {
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let mut key_event = KeyEvent::default();
+                        key_event.state = KeyState::Down;
+                        key_event.key = KbKey::Character(c.to_string());
+                        key_event.mods = mods;
+                        let event = Event::KeyDown(key_event);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::KeyboardInput {
+                        input,
+                        device_id,
+                        is_synthetic,
+                    } => {
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let key_state = match input.state {
+                            winit::event::ElementState::Pressed => KeyState::Down,
+                            winit::event::ElementState::Released => KeyState::Up,
+                        };
+                        let mut key_event = KeyEvent::default();
+                        key_event.state = key_state;
+                        key_event.mods = mods;
+                        key_event.key = winit_key(&input);
+                        let event = match input.state {
+                            winit::event::ElementState::Pressed => Event::KeyDown(key_event),
+                            winit::event::ElementState::Released => Event::KeyUp(key_event),
+                        };
+                        state.do_winit_window_event(event, &window_id);
+                    }
                     _ => (),
                 },
                 winit::event::Event::RedrawRequested(window_id) => {
-                    if let Some(handler) = state.inner.borrow().handlers.get(&window_id) {}
+                    state.paint_winit_window(&window_id);
                 }
                 _ => (),
             }

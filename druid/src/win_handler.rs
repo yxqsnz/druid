@@ -38,7 +38,7 @@ use crate::{
 
 use crate::app::{PendingWindow, WindowConfig};
 use crate::command::sys as sys_cmd;
-use druid_shell::WindowBuilder;
+use druid_shell::{Modifiers, WindowBuilder};
 use winit::event_loop::EventLoop;
 
 pub(crate) const RUN_COMMANDS_TOKEN: IdleToken = IdleToken::new(1);
@@ -91,8 +91,8 @@ pub(crate) struct InnerAppState<T> {
     command_queue: CommandQueue,
     file_dialogs: HashMap<FileDialogToken, DialogInfo>,
     ext_event_host: ExtEventHost,
-    windows: Windows<T>,
-    pub(crate) handlers: HashMap<winit::window::WindowId, Box<dyn WinHandler>>,
+    pub(crate) windows: Windows<T>,
+    pub(crate) winit_windows: HashMap<winit::window::WindowId, WindowId>,
     /// the application-level menu, only set on macos and only if there
     /// are no open windows.
     root_menu: Option<MenuManager<T>>,
@@ -106,7 +106,7 @@ pub(crate) struct InnerAppState<T> {
 }
 
 /// All active windows.
-struct Windows<T> {
+pub(crate) struct Windows<T> {
     pending: HashMap<WindowId, PendingWindow<T>>,
     windows: HashMap<WindowId, Window<T>>,
 }
@@ -137,7 +137,7 @@ impl<T> Windows<T> {
         self.windows.get(&id)
     }
 
-    fn get_mut(&mut self, id: WindowId) -> Option<&mut Window<T>> {
+    pub(crate) fn get_mut(&mut self, id: WindowId) -> Option<&mut Window<T>> {
         self.windows.get_mut(&id)
     }
 
@@ -165,7 +165,7 @@ impl<T> AppState<T> {
             delegate,
             command_queue: VecDeque::new(),
             file_dialogs: HashMap::new(),
-            handlers: HashMap::new(),
+            winit_windows: HashMap::new(),
             root_menu: None,
             menu_window: None,
             ext_event_host,
@@ -338,15 +338,9 @@ impl<T: Data> InnerAppState<T> {
         self.do_update();
     }
 
-    fn paint(&mut self, window_id: WindowId, piet: &mut Piet, invalid: &Region) {
+    fn paint(&mut self, window_id: WindowId) {
         if let Some(win) = self.windows.get_mut(window_id) {
-            win.do_paint(
-                piet,
-                invalid,
-                &mut self.command_queue,
-                &self.data,
-                &self.env,
-            );
+            win.do_paint(&mut self.command_queue, &self.data, &self.env);
         }
     }
 
@@ -576,6 +570,54 @@ impl<T: Data> AppState<T> {
         self.inner.borrow_mut().window_got_focus(window_id)
     }
 
+    pub(crate) fn set_mods(&self, window_id: &winit::window::WindowId, mods: Modifiers) {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow_mut().windows.get_mut(window_id) {
+                window.mods = mods;
+            }
+        }
+    }
+
+    pub(crate) fn get_mods(&self, window_id: &winit::window::WindowId) -> Option<Modifiers> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow().windows.get(window_id) {
+                return Some(window.mods.clone());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn do_winit_window_event(
+        &mut self,
+        event: Event,
+        window_id: &winit::window::WindowId,
+    ) {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            self.do_window_event(event, window_id);
+        }
+    }
+
     /// Send an event to the widget hierarchy.
     ///
     /// Returns `true` if the event produced an action.
@@ -597,8 +639,21 @@ impl<T: Data> AppState<T> {
         self.inner.borrow_mut().prepare_paint(window_id);
     }
 
-    fn paint_window(&mut self, window_id: WindowId, piet: &mut Piet, invalid: &Region) {
-        self.inner.borrow_mut().paint(window_id, piet, invalid);
+    pub(crate) fn paint_winit_window(&mut self, window_id: &winit::window::WindowId) {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            self.paint_window(window_id);
+        }
+    }
+
+    fn paint_window(&mut self, window_id: WindowId) {
+        self.inner.borrow_mut().paint(window_id);
     }
 
     fn idle(&mut self, token: IdleToken) {
@@ -888,8 +943,8 @@ impl<T: Data> AppState<T> {
                 handler.connect(&handle);
                 self.inner
                     .borrow_mut()
-                    .handlers
-                    .insert(handle.id(), Box::new(handler));
+                    .winit_windows
+                    .insert(handle.id(), id);
             }
             Err(_) => (),
         }
@@ -915,8 +970,8 @@ impl<T: Data> WinHandler for DruidHandler<T> {
         self.app_state.prepare_paint_window(self.window_id);
     }
 
-    fn paint(&mut self, piet: &mut Piet, region: &Region) {
-        self.app_state.paint_window(self.window_id, piet, region);
+    fn paint(&mut self) {
+        self.app_state.paint_window(self.window_id);
     }
 
     fn size(&mut self, size: Size) {

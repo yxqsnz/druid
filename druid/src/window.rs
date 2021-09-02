@@ -15,8 +15,11 @@
 //! Management of multiple windows.
 
 use druid_shell::piet::WgpuRenderer;
+use druid_shell::Modifiers;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::mem;
+use std::rc::Rc;
 use tracing::{error, info, info_span};
 
 // Automatically defaults to std::time::Instant on non Wasm platforms
@@ -61,12 +64,13 @@ pub struct Window<T> {
     pub(crate) last_mouse_pos: Option<Point>,
     pub(crate) focus: Option<WidgetId>,
     pub(crate) handle: WindowHandle,
-    pub(crate) renderer: WgpuRenderer,
+    pub(crate) renderer: Rc<RefCell<WgpuRenderer>>,
     pub(crate) timers: HashMap<TimerToken, WidgetId>,
     pub(crate) transparent: bool,
     pub(crate) ime_handlers: Vec<(TextFieldToken, TextFieldRegistration)>,
     ext_handle: ExtEventSink,
     pub(crate) ime_focus_change: Option<Option<TextFieldToken>>,
+    pub(crate) mods: Modifiers,
 }
 
 impl<T> Window<T> {
@@ -76,11 +80,16 @@ impl<T> Window<T> {
         pending: PendingWindow<T>,
         ext_handle: ExtEventSink,
     ) -> Window<T> {
+        let size = handle.get_size();
+        let scale = handle.get_scale();
+        println!("window scale is {:?}", scale);
+        let renderer = WgpuRenderer::new(&handle).unwrap();
+        renderer.set_size(size);
         Window {
             id,
             root: WidgetPod::new(pending.root),
             size_policy: pending.size_policy,
-            size: Size::ZERO,
+            size,
             invalid: Region::EMPTY,
             title: pending.title,
             transparent: pending.transparent,
@@ -90,7 +99,9 @@ impl<T> Window<T> {
             last_mouse_pos: None,
             focus: None,
             handle,
+            renderer: Rc::new(RefCell::new(renderer)),
             timers: HashMap::new(),
+            mods: Modifiers::empty(),
             ext_handle,
             ime_handlers: Vec::new(),
             ime_focus_change: None,
@@ -238,7 +249,10 @@ impl<T: Data> Window<T> {
         env: &Env,
     ) -> Handled {
         match &event {
-            Event::WindowSize(size) => self.size = *size,
+            Event::WindowSize(size) => {
+                self.size = *size;
+                self.renderer.borrow().set_size(*size);
+            }
             Event::MouseDown(e) | Event::MouseUp(e) | Event::MouseMove(e) | Event::Wheel(e) => {
                 self.last_mouse_pos = Some(e.pos)
             }
@@ -384,7 +398,6 @@ impl<T: Data> Window<T> {
                 self.handle.invalidate_rect(*rect);
             }
         }
-        self.invalid.clear();
     }
 
     #[allow(dead_code)]
@@ -413,29 +426,29 @@ impl<T: Data> Window<T> {
         }
     }
 
-    pub(crate) fn do_paint(
-        &mut self,
-        piet: &mut Piet,
-        invalid: &Region,
-        queue: &mut CommandQueue,
-        data: &T,
-        env: &Env,
-    ) {
+    pub(crate) fn do_paint(&mut self, queue: &mut CommandQueue, data: &T, env: &Env) {
         if self.root.state().needs_layout {
             self.layout(queue, data, env);
         }
 
-        for &r in invalid.rects() {
-            piet.clear(
-                Some(r),
-                if self.transparent {
-                    Color::TRANSPARENT
-                } else {
-                    env.get(crate::theme::WINDOW_BACKGROUND_COLOR)
-                },
-            );
-        }
-        self.paint(piet, invalid, queue, data, env);
+        let renderer = self.renderer.clone();
+        let mut renderer = renderer.borrow_mut();
+        let mut piet = Piet::new(&mut renderer);
+
+        // for &r in invalid.rects() {
+        //     piet.clear(
+        //         Some(r),
+        //         if self.transparent {
+        //             Color::TRANSPARENT
+        //         } else {
+        //             env.get(crate::theme::WINDOW_BACKGROUND_COLOR)
+        //         },
+        //     );
+        // }
+        let invalid = self.invalid.clone();
+        self.invalid.clear();
+        self.paint(&mut piet, &invalid, queue, data, env);
+        piet.finish();
     }
 
     fn layout(&mut self, queue: &mut CommandQueue, data: &T, env: &Env) {

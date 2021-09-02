@@ -597,7 +597,7 @@ pub trait WinHandler {
     /// Request the handler to paint the window contents.  `invalid` is the region in [display
     /// points](crate::Scale) that needs to be repainted; painting outside the invalid region will
     /// have no effect.
-    fn paint(&mut self, piet: &mut piet_wgpu::Piet, invalid: &Region);
+    fn paint(&mut self);
 
     /// Called when the resources need to be rebuilt.
     ///

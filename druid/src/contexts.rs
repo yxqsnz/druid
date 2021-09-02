@@ -379,6 +379,11 @@ impl_context_method!(EventCtx<'_, '_>, UpdateCtx<'_, '_>, LifeCycleCtx<'_, '_>, 
         self.widget_state.needs_layout = true;
     }
 
+    pub fn request_local_layout(&mut self) {
+        trace!("request_layout");
+        self.widget_state.needs_layout = true;
+    }
+
     /// Request an animation frame.
     pub fn request_anim_frame(&mut self) {
         trace!("request_anim_frame");
