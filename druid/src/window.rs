@@ -56,6 +56,7 @@ pub struct Window<T> {
     pub(crate) title: LabelText<T>,
     size_policy: WindowSizePolicy,
     size: Size,
+    scale: f64,
     invalid: Region,
     pub(crate) menu: Option<MenuManager<T>>,
     pub(crate) context_menu: Option<(MenuManager<T>, Point)>,
@@ -82,14 +83,15 @@ impl<T> Window<T> {
     ) -> Window<T> {
         let size = handle.get_size();
         let scale = handle.get_scale();
-        println!("window scale is {:?}", scale);
-        let renderer = WgpuRenderer::new(&handle).unwrap();
+        let mut renderer = WgpuRenderer::new(&handle).unwrap();
         renderer.set_size(size);
+        renderer.set_scale(scale);
         Window {
             id,
             root: WidgetPod::new(pending.root),
             size_policy: pending.size_policy,
             size,
+            scale,
             invalid: Region::EMPTY,
             title: pending.title,
             transparent: pending.transparent,
@@ -250,8 +252,9 @@ impl<T: Data> Window<T> {
     ) -> Handled {
         match &event {
             Event::WindowSize(size) => {
-                self.size = *size;
-                self.renderer.borrow().set_size(*size);
+                self.size = *size / self.scale;
+                println!("size is {}", self.size);
+                self.renderer.borrow_mut().set_size(*size);
             }
             Event::MouseDown(e) | Event::MouseUp(e) | Event::MouseMove(e) | Event::Wheel(e) => {
                 self.last_mouse_pos = Some(e.pos)
@@ -445,8 +448,9 @@ impl<T: Data> Window<T> {
         //         },
         //     );
         // }
-        let invalid = self.invalid.clone();
         self.invalid.clear();
+        self.invalid.add_rect(self.size.to_rect());
+        let invalid = self.invalid.clone();
         self.paint(&mut piet, &invalid, queue, data, env);
         piet.finish();
     }

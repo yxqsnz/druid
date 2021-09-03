@@ -268,6 +268,10 @@ impl<T: Data> AppLauncher<T> {
             *control_flow = ControlFlow::Wait;
             match event {
                 winit::event::Event::WindowEvent { window_id, event } => match event {
+                    winit::event::WindowEvent::ScaleFactorChanged {
+                        scale_factor,
+                        new_inner_size,
+                    } => {}
                     winit::event::WindowEvent::Resized(size) => {
                         let size = Size::new(size.width.into(), size.height.into());
                         let event = Event::WindowSize(size);
