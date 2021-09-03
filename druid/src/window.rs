@@ -15,7 +15,7 @@
 //! Management of multiple windows.
 
 use druid_shell::piet::WgpuRenderer;
-use druid_shell::Modifiers;
+use druid_shell::{Modifiers, MouseButtons};
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::mem;
@@ -56,13 +56,14 @@ pub struct Window<T> {
     pub(crate) title: LabelText<T>,
     size_policy: WindowSizePolicy,
     size: Size,
-    scale: f64,
+    pub(crate) scale: f64,
     invalid: Region,
     pub(crate) menu: Option<MenuManager<T>>,
     pub(crate) context_menu: Option<(MenuManager<T>, Point)>,
     // This will be `Some` whenever the most recently displayed frame was an animation frame.
     pub(crate) last_anim: Option<Instant>,
     pub(crate) last_mouse_pos: Option<Point>,
+    pub(crate) last_mouse_buttons: Option<MouseButtons>,
     pub(crate) focus: Option<WidgetId>,
     pub(crate) handle: WindowHandle,
     pub(crate) renderer: Rc<RefCell<WgpuRenderer>>,
@@ -101,6 +102,7 @@ impl<T> Window<T> {
             context_menu: None,
             last_anim: None,
             last_mouse_pos: None,
+            last_mouse_buttons: None,
             focus: None,
             handle,
             renderer: Rc::new(RefCell::new(renderer)),
@@ -262,7 +264,8 @@ impl<T: Data> Window<T> {
                 self.renderer.borrow_mut().set_size(*size);
             }
             Event::MouseDown(e) | Event::MouseUp(e) | Event::MouseMove(e) | Event::Wheel(e) => {
-                self.last_mouse_pos = Some(e.pos)
+                self.last_mouse_pos = Some(e.pos);
+                self.last_mouse_buttons = Some(e.buttons);
             }
             Event::Internal(InternalEvent::MouseLeave) => self.last_mouse_pos = None,
             _ => (),

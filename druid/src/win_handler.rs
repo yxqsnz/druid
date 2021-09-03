@@ -38,7 +38,8 @@ use crate::{
 
 use crate::app::{PendingWindow, WindowConfig};
 use crate::command::sys as sys_cmd;
-use druid_shell::{Modifiers, WindowBuilder};
+use druid_shell::kurbo::Point;
+use druid_shell::{Modifiers, MouseButtons, WindowBuilder};
 use winit::event_loop::EventLoop;
 
 pub(crate) const RUN_COMMANDS_TOKEN: IdleToken = IdleToken::new(1);
@@ -568,6 +569,57 @@ impl<T: Data> AppState<T> {
 
     fn window_got_focus(&mut self, window_id: WindowId) {
         self.inner.borrow_mut().window_got_focus(window_id)
+    }
+
+    pub(crate) fn get_mouse_buttons(
+        &self,
+        window_id: &winit::window::WindowId,
+    ) -> Option<MouseButtons> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow_mut().windows.get_mut(window_id) {
+                return window.last_mouse_buttons.clone();
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_mouse_pos(&self, window_id: &winit::window::WindowId) -> Option<Point> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow_mut().windows.get_mut(window_id) {
+                return window.last_mouse_pos.clone();
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_scale(&self, window_id: &winit::window::WindowId) -> Option<f64> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow().windows.get(window_id) {
+                return Some(window.scale);
+            }
+        }
+        None
     }
 
     pub(crate) fn set_mods(&self, window_id: &winit::window::WindowId, mods: Modifiers) {

@@ -21,9 +21,12 @@ use crate::shell::{Application, Error as PlatformError, WindowBuilder, WindowHan
 use crate::widget::LabelText;
 use crate::win_handler::{AppHandler, AppState};
 use crate::window::WindowId;
-use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, Widget};
+use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, MouseEvent, Widget};
 
-use druid_shell::{winit_key, KbKey, KeyEvent, KeyState, Modifiers, WindowState};
+use druid_shell::kurbo::Vec2;
+use druid_shell::{
+    winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, WindowState,
+};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 /// A function that modifies the initial environment.
@@ -310,6 +313,75 @@ impl<T: Data> AppLauncher<T> {
                         key_event.key = KbKey::Character(c.to_string());
                         key_event.mods = mods;
                         let event = Event::KeyDown(key_event);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::CursorMoved {
+                        device_id,
+                        position,
+                        modifiers,
+                    } => {
+                        let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let pos = Point::new(position.x / scale, position.y / scale);
+                        let buttons = state
+                            .get_mouse_buttons(&window_id)
+                            .unwrap_or(MouseButtons::new());
+                        let mouse_event = MouseEvent {
+                            pos,
+                            window_pos: pos,
+                            buttons,
+                            mods,
+                            count: 0,
+                            focus: false,
+                            button: MouseButton::None,
+                            wheel_delta: Vec2::ZERO,
+                        };
+                        let event = Event::MouseMove(mouse_event);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::MouseInput {
+                        device_id,
+                        state: mouse_state,
+                        button,
+                        modifiers,
+                    } => {
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
+                        let mut buttons = state
+                            .get_mouse_buttons(&window_id)
+                            .unwrap_or(MouseButtons::new());
+                        let button = match button {
+                            winit::event::MouseButton::Left => MouseButton::Left,
+                            winit::event::MouseButton::Right => MouseButton::Right,
+                            winit::event::MouseButton::Middle => MouseButton::Middle,
+                            winit::event::MouseButton::Other(_) => MouseButton::None,
+                        };
+                        match mouse_state {
+                            winit::event::ElementState::Pressed => buttons.insert(button),
+                            winit::event::ElementState::Released => buttons.remove(button),
+                        }
+                        let mouse_event = MouseEvent {
+                            pos,
+                            window_pos: pos,
+                            buttons,
+                            mods,
+                            count: 0,
+                            focus: false,
+                            button,
+                            wheel_delta: Vec2::ZERO,
+                        };
+                        let event = match mouse_state {
+                            winit::event::ElementState::Pressed => Event::MouseDown(mouse_event),
+                            winit::event::ElementState::Released => Event::MouseUp(mouse_event),
+                        };
                         state.do_winit_window_event(event, &window_id);
                     }
                     winit::event::WindowEvent::KeyboardInput {
