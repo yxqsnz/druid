@@ -298,8 +298,8 @@ impl WindowHandle {
     ///
     /// [display points]: crate::Scale
     pub fn get_size(&self) -> Size {
-        let outer_size = self.0.outer_size();
-        Size::new(outer_size.width.into(), outer_size.height.into())
+        let inner_size = self.0.inner_size();
+        Size::new(inner_size.width.into(), inner_size.height.into())
     }
 
     /// Sets the [`WindowLevel`](crate::WindowLevel), the z-order in the Window system / compositor

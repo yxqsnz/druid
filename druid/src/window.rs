@@ -83,9 +83,12 @@ impl<T> Window<T> {
     ) -> Window<T> {
         let size = handle.get_size();
         let scale = handle.get_scale();
+        println!("window new {} {}", size, scale);
         let mut renderer = WgpuRenderer::new(&handle).unwrap();
         renderer.set_size(size);
         renderer.set_scale(scale);
+
+        let size = size / scale;
         Window {
             id,
             root: WidgetPod::new(pending.root),
