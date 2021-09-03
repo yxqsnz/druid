@@ -975,7 +975,7 @@ impl<T: Data> WinHandler for DruidHandler<T> {
     }
 
     fn size(&mut self, size: Size) {
-        let event = Event::WindowSize(size);
+        let event = Event::WindowSize(size, None);
         self.app_state.do_window_event(event, self.window_id);
     }
 

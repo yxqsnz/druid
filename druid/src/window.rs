@@ -83,7 +83,6 @@ impl<T> Window<T> {
     ) -> Window<T> {
         let size = handle.get_size();
         let scale = handle.get_scale();
-        println!("window new {} {}", size, scale);
         let mut renderer = WgpuRenderer::new(&handle).unwrap();
         renderer.set_size(size);
         renderer.set_scale(scale);
@@ -254,7 +253,10 @@ impl<T: Data> Window<T> {
         env: &Env,
     ) -> Handled {
         match &event {
-            Event::WindowSize(size) => {
+            Event::WindowSize(size, new_scale) => {
+                if let Some(scale) = new_scale {
+                    self.scale = *scale;
+                }
                 self.size = *size / self.scale;
                 println!("size is {}", self.size);
                 self.renderer.borrow_mut().set_size(*size);
@@ -333,7 +335,7 @@ impl<T: Data> Window<T> {
 
         if matches!(
             (event, self.size_policy),
-            (Event::WindowSize(_), WindowSizePolicy::Content)
+            (Event::WindowSize(_, _), WindowSizePolicy::Content)
         ) {
             // Because our initial size can be zero, the window system won't ask us to paint.
             // So layout ourselves and hopefully we resize

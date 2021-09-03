@@ -271,10 +271,15 @@ impl<T: Data> AppLauncher<T> {
                     winit::event::WindowEvent::ScaleFactorChanged {
                         scale_factor,
                         new_inner_size,
-                    } => {}
+                    } => {
+                        let size =
+                            Size::new(new_inner_size.width.into(), new_inner_size.height.into());
+                        let event = Event::WindowSize(size, Some(scale_factor));
+                        state.do_winit_window_event(event, &window_id);
+                    }
                     winit::event::WindowEvent::Resized(size) => {
                         let size = Size::new(size.width.into(), size.height.into());
-                        let event = Event::WindowSize(size);
+                        let event = Event::WindowSize(size, None);
                         state.do_winit_window_event(event, &window_id);
                     }
                     winit::event::WindowEvent::ModifiersChanged(winit_mods) => {

@@ -729,7 +729,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
                 }
                 true
             }
-            Event::WindowSize(_) => {
+            Event::WindowSize(_, _) => {
                 self.state.needs_layout = true;
                 ctx.is_root
             }
