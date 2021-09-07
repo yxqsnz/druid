@@ -14,6 +14,8 @@
 
 //! Window building and app lifecycle.
 
+use std::sync::Arc;
+
 use crate::ext_event::{ExtEventHost, ExtEventSink};
 use crate::kurbo::{Point, Size};
 use crate::menu::MenuManager;
@@ -26,6 +28,7 @@ use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, MouseEvent, Wi
 use druid_shell::kurbo::Vec2;
 use druid_shell::{
     winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, WindowState,
+    WinitEvent,
 };
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -241,7 +244,10 @@ impl<T: Data> AppLauncher<T> {
     /// Returns an error if a window cannot be instantiated. This is usually
     /// a fatal error.
     pub fn launch(mut self, data: T) -> Result<(), PlatformError> {
-        let app = Application::new()?;
+        let event_loop = EventLoop::with_user_event();
+        let event_proxy = Arc::new(event_loop.create_proxy());
+
+        let app = Application::new(event_proxy)?;
 
         let mut env = self
             .l10n_resources
@@ -260,7 +266,7 @@ impl<T: Data> AppLauncher<T> {
             self.ext_event_host,
         );
 
-        let event_loop = EventLoop::new();
+        event_loop.create_proxy();
 
         for desc in self.windows {
             let window = desc.build_native(&mut state, &event_loop)?;
@@ -270,6 +276,11 @@ impl<T: Data> AppLauncher<T> {
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
+                winit::event::Event::UserEvent(event) => match event {
+                    WinitEvent::Idle(token) => {
+                        state.idle(token);
+                    }
+                },
                 winit::event::Event::WindowEvent { window_id, event } => match event {
                     winit::event::WindowEvent::ScaleFactorChanged {
                         scale_factor,
@@ -302,19 +313,20 @@ impl<T: Data> AppLauncher<T> {
 
                         state.set_mods(&window_id, mods);
                     }
-                    winit::event::WindowEvent::ReceivedCharacter(c) => {
-                        let mods = if let Some(mods) = state.get_mods(&window_id) {
-                            mods
-                        } else {
-                            Modifiers::empty()
-                        };
-                        let mut key_event = KeyEvent::default();
-                        key_event.state = KeyState::Down;
-                        key_event.key = KbKey::Character(c.to_string());
-                        key_event.mods = mods;
-                        let event = Event::KeyDown(key_event);
-                        state.do_winit_window_event(event, &window_id);
-                    }
+                    // winit::event::WindowEvent::ReceivedCharacter(c) => {
+                    //     println!("receive char {}", c);
+                    //     let mods = if let Some(mods) = state.get_mods(&window_id) {
+                    //         mods
+                    //     } else {
+                    //         Modifiers::empty()
+                    //     };
+                    //     let mut key_event = KeyEvent::default();
+                    //     key_event.state = KeyState::Down;
+                    //     key_event.key = KbKey::Character(c.to_string());
+                    //     key_event.mods = mods;
+                    //     let event = Event::KeyDown(key_event);
+                    //     state.do_winit_window_event(event, &window_id);
+                    // }
                     winit::event::WindowEvent::CursorMoved {
                         device_id,
                         position,
@@ -389,6 +401,7 @@ impl<T: Data> AppLauncher<T> {
                         device_id,
                         is_synthetic,
                     } => {
+                        println!("keyboard input {:?}", input);
                         let mods = if let Some(mods) = state.get_mods(&window_id) {
                             mods
                         } else {
@@ -401,7 +414,7 @@ impl<T: Data> AppLauncher<T> {
                         let mut key_event = KeyEvent::default();
                         key_event.state = key_state;
                         key_event.mods = mods;
-                        key_event.key = winit_key(&input);
+                        key_event.key = winit_key(&input, mods.shift());
                         let event = match input.state {
                             winit::event::ElementState::Pressed => Event::KeyDown(key_event),
                             winit::event::ElementState::Released => Event::KeyUp(key_event),
@@ -758,7 +771,7 @@ impl<T: Data> WindowDesc<T> {
     pub(crate) fn build_native(
         self,
         state: &mut AppState<T>,
-        event_loop: &EventLoop<()>,
+        event_loop: &EventLoop<WinitEvent>,
     ) -> Result<WindowHandle, PlatformError> {
         state.build_native_window(self.id, self.pending, self.config, event_loop)
     }

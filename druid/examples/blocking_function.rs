@@ -63,14 +63,14 @@ fn ui_builder() -> impl Widget<AppState> {
 }
 
 fn wrapped_slow_function(sink: ExtEventSink, number: u32) {
-    thread::spawn(move || {
-        let number = slow_function(number);
-        // Once the slow function is done we can use the event sink (the external handle).
-        // This sends the `FINISH_SLOW_FUNCTION` command to the main thread and attach
-        // the number as payload.
-        sink.submit_command(FINISH_SLOW_FUNCTION, number, Target::Auto)
-            .expect("command failed to submit");
-    });
+    //thread::spawn(move || {
+    //    let number = slow_function(number);
+    //    // Once the slow function is done we can use the event sink (the external handle).
+    //    // This sends the `FINISH_SLOW_FUNCTION` command to the main thread and attach
+    //    // the number as payload.
+    //    sink.submit_command(FINISH_SLOW_FUNCTION, number, Target::Auto)
+    //        .expect("command failed to submit");
+    //});
 }
 
 // Pretend this is downloading a file, or doing heavy calculations...

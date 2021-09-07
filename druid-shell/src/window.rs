@@ -32,8 +32,12 @@ use crate::text::{Event, InputHandler};
 use piet_wgpu::PietText;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::dpi::{LogicalPosition, LogicalSize};
-use winit::event_loop::EventLoopWindowTarget;
+use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
 use winit::window::CursorIcon;
+
+pub enum WinitEvent {
+    Idle(IdleToken),
+}
 
 /// A token that uniquely identifies a running timer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
@@ -88,7 +92,10 @@ impl TextFieldToken {
 //NOTE: this has a From<backend::Handle> impl for construction
 /// A handle that can enqueue tasks on the window loop.
 #[derive(Clone)]
-pub struct IdleHandle();
+pub struct IdleHandle(Arc<EventLoopProxy<WinitEvent>>);
+
+unsafe impl Sync for IdleHandle {}
+unsafe impl Send for IdleHandle {}
 
 impl IdleHandle {
     /// Add an idle handler, which is called (once) when the message loop
@@ -105,7 +112,10 @@ impl IdleHandle {
 
     /// Request a callback from the runloop. Your `WinHander::idle` method will
     /// be called with the `token` that was passed in.
-    pub fn schedule_idle(&mut self, token: IdleToken) {}
+
+    pub fn schedule_idle(&mut self, token: IdleToken) {
+        self.0.send_event(WinitEvent::Idle(token));
+    }
 }
 
 /// A token that uniquely identifies a idle schedule.
@@ -169,7 +179,7 @@ pub enum WindowState {
 
 /// A handle to a platform window object.
 #[derive(Clone)]
-pub struct WindowHandle(Arc<winit::window::Window>);
+pub struct WindowHandle(Arc<winit::window::Window>, Arc<EventLoopProxy<WinitEvent>>);
 
 impl WindowHandle {
     pub fn id(&self) -> winit::window::WindowId {
@@ -341,9 +351,9 @@ impl WindowHandle {
     pub fn set_menu(&self, menu: Menu) {}
 
     /// Get access to a type that can perform text layout.
-    pub fn text(&self) -> PietText {
-        PietText::new()
-    }
+    // pub fn text(&self) -> PietText {
+    //     PietText::new()
+    // }
 
     /// Register a new text input receiver for this window.
     ///
@@ -435,7 +445,7 @@ impl WindowHandle {
 
     /// Get a handle that can be used to schedule an idle task.
     pub fn get_idle_handle(&self) -> Option<IdleHandle> {
-        None
+        Some(IdleHandle(self.1.clone()))
     }
 
     /// Get the DPI scale of the window.
@@ -455,14 +465,18 @@ unsafe impl HasRawWindowHandle for WindowHandle {
 }
 
 /// A builder type for creating new windows.
-pub struct WindowBuilder(winit::window::WindowBuilder);
+pub struct WindowBuilder(
+    winit::window::WindowBuilder,
+    Arc<EventLoopProxy<WinitEvent>>,
+);
 
 impl WindowBuilder {
     /// Create a new `WindowBuilder`.
     ///
     /// Takes the [`Application`](crate::Application) that this window is for.
     pub fn new(app: Application) -> WindowBuilder {
-        WindowBuilder(winit::window::WindowBuilder::new())
+        let event_proxy = app.state.borrow().event_proxy.clone();
+        WindowBuilder(winit::window::WindowBuilder::new(), event_proxy)
     }
 
     /// Set the [`WinHandler`] for this window.
@@ -554,9 +568,10 @@ impl WindowBuilder {
         self,
         window_target: &EventLoopWindowTarget<T>,
     ) -> Result<WindowHandle, Error> {
+        let event_proxy = self.1.clone();
         self.0
             .build(window_target)
-            .map(|w| WindowHandle(Arc::new(w)))
+            .map(|w| WindowHandle(Arc::new(w), event_proxy))
             .map_err(|e| Error::Other(std::sync::Arc::new(anyhow::anyhow!("{}", e))))
     }
 }

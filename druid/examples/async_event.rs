@@ -48,7 +48,7 @@ pub fn main() {
     // should be done like this: generating something over time
     // (like this or reacting to external events), or something that takes a
     // long time and shouldn't block main UI updates.
-    thread::spawn(move || generate_colors(event_sink));
+    //thread::spawn(move || generate_colors(event_sink));
 
     launcher
         .log_to_console()

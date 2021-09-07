@@ -221,47 +221,263 @@ impl IntoKey for &str {
     }
 }
 
-pub fn winit_key(input: &winit::event::KeyboardInput) -> KbKey {
+pub fn winit_key(input: &winit::event::KeyboardInput, shift: bool) -> KbKey {
     use winit::event::VirtualKeyCode;
     if let Some(key) = input.virtual_keycode.as_ref() {
         match key {
-            VirtualKeyCode::Key1 => KbKey::Unidentified,
-            VirtualKeyCode::Key2 => KbKey::Unidentified,
-            VirtualKeyCode::Key3 => KbKey::Unidentified,
-            VirtualKeyCode::Key4 => KbKey::Unidentified,
-            VirtualKeyCode::Key5 => KbKey::Unidentified,
-            VirtualKeyCode::Key6 => KbKey::Unidentified,
-            VirtualKeyCode::Key7 => KbKey::Unidentified,
-            VirtualKeyCode::Key8 => KbKey::Unidentified,
-            VirtualKeyCode::Key9 => KbKey::Unidentified,
-            VirtualKeyCode::Key0 => KbKey::Unidentified,
-            VirtualKeyCode::A => KbKey::Unidentified,
-            VirtualKeyCode::B => KbKey::Unidentified,
-            VirtualKeyCode::C => KbKey::Unidentified,
-            VirtualKeyCode::D => KbKey::Unidentified,
-            VirtualKeyCode::E => KbKey::Unidentified,
-            VirtualKeyCode::F => KbKey::Unidentified,
-            VirtualKeyCode::G => KbKey::Unidentified,
-            VirtualKeyCode::H => KbKey::Unidentified,
-            VirtualKeyCode::I => KbKey::Unidentified,
-            VirtualKeyCode::J => KbKey::Unidentified,
-            VirtualKeyCode::K => KbKey::Unidentified,
-            VirtualKeyCode::L => KbKey::Unidentified,
-            VirtualKeyCode::M => KbKey::Unidentified,
-            VirtualKeyCode::N => KbKey::Unidentified,
-            VirtualKeyCode::O => KbKey::Unidentified,
-            VirtualKeyCode::P => KbKey::Unidentified,
-            VirtualKeyCode::Q => KbKey::Unidentified,
-            VirtualKeyCode::R => KbKey::Unidentified,
-            VirtualKeyCode::S => KbKey::Unidentified,
-            VirtualKeyCode::T => KbKey::Unidentified,
-            VirtualKeyCode::U => KbKey::Unidentified,
-            VirtualKeyCode::V => KbKey::Unidentified,
-            VirtualKeyCode::W => KbKey::Unidentified,
-            VirtualKeyCode::X => KbKey::Unidentified,
-            VirtualKeyCode::Y => KbKey::Unidentified,
-            VirtualKeyCode::Z => KbKey::Unidentified,
-            VirtualKeyCode::Escape => keyboard_types::Key::Escape,
+            VirtualKeyCode::Key1 => {
+                if !shift {
+                    KbKey::Character("1".to_string())
+                } else {
+                    KbKey::Character("!".to_string())
+                }
+            }
+            VirtualKeyCode::Key2 => {
+                if !shift {
+                    KbKey::Character("2".to_string())
+                } else {
+                    KbKey::Character("@".to_string())
+                }
+            }
+            VirtualKeyCode::Key3 => {
+                if !shift {
+                    KbKey::Character("3".to_string())
+                } else {
+                    KbKey::Character("#".to_string())
+                }
+            }
+            VirtualKeyCode::Key4 => {
+                if !shift {
+                    KbKey::Character("4".to_string())
+                } else {
+                    KbKey::Character("$".to_string())
+                }
+            }
+            VirtualKeyCode::Key5 => {
+                if !shift {
+                    KbKey::Character("5".to_string())
+                } else {
+                    KbKey::Character("%".to_string())
+                }
+            }
+            VirtualKeyCode::Key6 => {
+                if !shift {
+                    KbKey::Character("6".to_string())
+                } else {
+                    KbKey::Character("^".to_string())
+                }
+            }
+            VirtualKeyCode::Key7 => {
+                if !shift {
+                    KbKey::Character("7".to_string())
+                } else {
+                    KbKey::Character("&".to_string())
+                }
+            }
+            VirtualKeyCode::Key8 => {
+                if !shift {
+                    KbKey::Character("8".to_string())
+                } else {
+                    KbKey::Character("*".to_string())
+                }
+            }
+            VirtualKeyCode::Key9 => {
+                if !shift {
+                    KbKey::Character("9".to_string())
+                } else {
+                    KbKey::Character("(".to_string())
+                }
+            }
+            VirtualKeyCode::Key0 => {
+                if !shift {
+                    KbKey::Character("0".to_string())
+                } else {
+                    KbKey::Character(")".to_string())
+                }
+            }
+            VirtualKeyCode::A => {
+                if !shift {
+                    KbKey::Character("a".to_string())
+                } else {
+                    KbKey::Character("A".to_string())
+                }
+            }
+            VirtualKeyCode::B => {
+                if !shift {
+                    KbKey::Character("b".to_string())
+                } else {
+                    KbKey::Character("B".to_string())
+                }
+            }
+            VirtualKeyCode::C => {
+                if !shift {
+                    KbKey::Character("c".to_string())
+                } else {
+                    KbKey::Character("C".to_string())
+                }
+            }
+            VirtualKeyCode::D => {
+                if !shift {
+                    KbKey::Character("d".to_string())
+                } else {
+                    KbKey::Character("D".to_string())
+                }
+            }
+            VirtualKeyCode::E => {
+                if !shift {
+                    KbKey::Character("e".to_string())
+                } else {
+                    KbKey::Character("E".to_string())
+                }
+            }
+            VirtualKeyCode::F => {
+                if !shift {
+                    KbKey::Character("f".to_string())
+                } else {
+                    KbKey::Character("F".to_string())
+                }
+            }
+            VirtualKeyCode::G => {
+                if !shift {
+                    KbKey::Character("g".to_string())
+                } else {
+                    KbKey::Character("G".to_string())
+                }
+            }
+            VirtualKeyCode::H => {
+                if !shift {
+                    KbKey::Character("h".to_string())
+                } else {
+                    KbKey::Character("H".to_string())
+                }
+            }
+            VirtualKeyCode::I => {
+                if !shift {
+                    KbKey::Character("i".to_string())
+                } else {
+                    KbKey::Character("I".to_string())
+                }
+            }
+            VirtualKeyCode::J => {
+                if !shift {
+                    KbKey::Character("j".to_string())
+                } else {
+                    KbKey::Character("J".to_string())
+                }
+            }
+            VirtualKeyCode::K => {
+                if !shift {
+                    KbKey::Character("k".to_string())
+                } else {
+                    KbKey::Character("K".to_string())
+                }
+            }
+            VirtualKeyCode::L => {
+                if !shift {
+                    KbKey::Character("l".to_string())
+                } else {
+                    KbKey::Character("L".to_string())
+                }
+            }
+            VirtualKeyCode::M => {
+                if !shift {
+                    KbKey::Character("m".to_string())
+                } else {
+                    KbKey::Character("M".to_string())
+                }
+            }
+            VirtualKeyCode::N => {
+                if !shift {
+                    KbKey::Character("n".to_string())
+                } else {
+                    KbKey::Character("N".to_string())
+                }
+            }
+            VirtualKeyCode::O => {
+                if !shift {
+                    KbKey::Character("o".to_string())
+                } else {
+                    KbKey::Character("O".to_string())
+                }
+            }
+            VirtualKeyCode::P => {
+                if !shift {
+                    KbKey::Character("p".to_string())
+                } else {
+                    KbKey::Character("P".to_string())
+                }
+            }
+            VirtualKeyCode::Q => {
+                if !shift {
+                    KbKey::Character("q".to_string())
+                } else {
+                    KbKey::Character("Q".to_string())
+                }
+            }
+            VirtualKeyCode::R => {
+                if !shift {
+                    KbKey::Character("r".to_string())
+                } else {
+                    KbKey::Character("R".to_string())
+                }
+            }
+            VirtualKeyCode::S => {
+                if !shift {
+                    KbKey::Character("s".to_string())
+                } else {
+                    KbKey::Character("S".to_string())
+                }
+            }
+            VirtualKeyCode::T => {
+                if !shift {
+                    KbKey::Character("t".to_string())
+                } else {
+                    KbKey::Character("T".to_string())
+                }
+            }
+            VirtualKeyCode::U => {
+                if !shift {
+                    KbKey::Character("u".to_string())
+                } else {
+                    KbKey::Character("U".to_string())
+                }
+            }
+            VirtualKeyCode::V => {
+                if !shift {
+                    KbKey::Character("v".to_string())
+                } else {
+                    KbKey::Character("V".to_string())
+                }
+            }
+            VirtualKeyCode::W => {
+                if !shift {
+                    KbKey::Character("w".to_string())
+                } else {
+                    KbKey::Character("W".to_string())
+                }
+            }
+            VirtualKeyCode::X => {
+                if !shift {
+                    KbKey::Character("x".to_string())
+                } else {
+                    KbKey::Character("X".to_string())
+                }
+            }
+            VirtualKeyCode::Y => {
+                if !shift {
+                    KbKey::Character("y".to_string())
+                } else {
+                    KbKey::Character("Y".to_string())
+                }
+            }
+            VirtualKeyCode::Z => {
+                if !shift {
+                    KbKey::Character("z".to_string())
+                } else {
+                    KbKey::Character("Z".to_string())
+                }
+            }
+            VirtualKeyCode::Escape => KbKey::Escape,
             VirtualKeyCode::F1 => KbKey::F1,
             VirtualKeyCode::F2 => KbKey::F2,
             VirtualKeyCode::F3 => KbKey::F3,
@@ -271,21 +487,21 @@ pub fn winit_key(input: &winit::event::KeyboardInput) -> KbKey {
             VirtualKeyCode::F7 => KbKey::F7,
             VirtualKeyCode::F8 => KbKey::F8,
             VirtualKeyCode::F9 => KbKey::F9,
-            VirtualKeyCode::F10 => keyboard_types::Key::F10,
-            VirtualKeyCode::F11 => keyboard_types::Key::F11,
-            VirtualKeyCode::F12 => keyboard_types::Key::F12,
-            VirtualKeyCode::F13 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F14 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F15 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F16 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F17 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F18 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F19 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F20 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F21 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F22 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F23 => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::F24 => keyboard_types::Key::Unidentified,
+            VirtualKeyCode::F10 => KbKey::F10,
+            VirtualKeyCode::F11 => KbKey::F11,
+            VirtualKeyCode::F12 => KbKey::F12,
+            VirtualKeyCode::F13 => KbKey::Unidentified,
+            VirtualKeyCode::F14 => KbKey::Unidentified,
+            VirtualKeyCode::F15 => KbKey::Unidentified,
+            VirtualKeyCode::F16 => KbKey::Unidentified,
+            VirtualKeyCode::F17 => KbKey::Unidentified,
+            VirtualKeyCode::F18 => KbKey::Unidentified,
+            VirtualKeyCode::F19 => KbKey::Unidentified,
+            VirtualKeyCode::F20 => KbKey::Unidentified,
+            VirtualKeyCode::F21 => KbKey::Unidentified,
+            VirtualKeyCode::F22 => KbKey::Unidentified,
+            VirtualKeyCode::F23 => KbKey::Unidentified,
+            VirtualKeyCode::F24 => KbKey::Unidentified,
             VirtualKeyCode::Snapshot => keyboard_types::Key::Unidentified,
             VirtualKeyCode::Scroll => keyboard_types::Key::Unidentified,
             VirtualKeyCode::Pause => keyboard_types::Key::Pause,
@@ -299,9 +515,9 @@ pub fn winit_key(input: &winit::event::KeyboardInput) -> KbKey {
             VirtualKeyCode::Up => keyboard_types::Key::ArrowUp,
             VirtualKeyCode::Right => keyboard_types::Key::ArrowRight,
             VirtualKeyCode::Down => keyboard_types::Key::ArrowDown,
-            VirtualKeyCode::Back => keyboard_types::Key::BrowserBack,
+            VirtualKeyCode::Back => KbKey::Backspace,
             VirtualKeyCode::Return => keyboard_types::Key::Enter,
-            VirtualKeyCode::Space => keyboard_types::Key::Unidentified,
+            VirtualKeyCode::Space => KbKey::Character(" ".to_string()),
             VirtualKeyCode::Compose => KbKey::Compose,
             VirtualKeyCode::Caret => KbKey::Unidentified,
             VirtualKeyCode::Numlock => KbKey::NumLock,
@@ -325,30 +541,66 @@ pub fn winit_key(input: &winit::event::KeyboardInput) -> KbKey {
             VirtualKeyCode::NumpadSubtract => KbKey::Unidentified,
             VirtualKeyCode::AbntC1 => KbKey::Unidentified,
             VirtualKeyCode::AbntC2 => KbKey::Unidentified,
-            VirtualKeyCode::Apostrophe => todo!(),
+            VirtualKeyCode::Apostrophe => {
+                if !shift {
+                    KbKey::Character("'".to_string())
+                } else {
+                    KbKey::Character("\"".to_string())
+                }
+            }
             VirtualKeyCode::Apps => KbKey::MediaApps,
             VirtualKeyCode::Asterisk => KbKey::Unidentified,
             VirtualKeyCode::At => KbKey::Unidentified,
             VirtualKeyCode::Ax => KbKey::Unidentified,
-            VirtualKeyCode::Backslash => KbKey::Unidentified,
+            VirtualKeyCode::Backslash => {
+                if !shift {
+                    KbKey::Character("/".to_string())
+                } else {
+                    KbKey::Character("|".to_string())
+                }
+            }
             VirtualKeyCode::Calculator => KbKey::Unidentified,
             VirtualKeyCode::Capital => KbKey::CapsLock,
             VirtualKeyCode::Colon => KbKey::Unidentified,
-            VirtualKeyCode::Comma => KbKey::Unidentified,
+            VirtualKeyCode::Comma => {
+                if !shift {
+                    KbKey::Character(",".to_string())
+                } else {
+                    KbKey::Character("<".to_string())
+                }
+            }
             VirtualKeyCode::Convert => KbKey::Convert,
             VirtualKeyCode::Equals => KbKey::Unidentified,
-            VirtualKeyCode::Grave => KbKey::Unidentified,
+            VirtualKeyCode::Grave => {
+                if !shift {
+                    KbKey::Character("`".to_string())
+                } else {
+                    KbKey::Character("~".to_string())
+                }
+            }
             VirtualKeyCode::Kana => KbKey::KanaMode,
             VirtualKeyCode::Kanji => KbKey::KanjiMode,
             VirtualKeyCode::LAlt => KbKey::Alt,
-            VirtualKeyCode::LBracket => KbKey::Unidentified,
+            VirtualKeyCode::LBracket => {
+                if !shift {
+                    KbKey::Character("[".to_string())
+                } else {
+                    KbKey::Character("{".to_string())
+                }
+            }
             VirtualKeyCode::LControl => KbKey::Control,
             VirtualKeyCode::LShift => KbKey::Shift,
             VirtualKeyCode::LWin => KbKey::Meta,
             VirtualKeyCode::Mail => KbKey::MailSend,
             VirtualKeyCode::MediaSelect => KbKey::MediaApps,
             VirtualKeyCode::MediaStop => KbKey::MediaStop,
-            VirtualKeyCode::Minus => KbKey::Unidentified,
+            VirtualKeyCode::Minus => {
+                if !shift {
+                    KbKey::Character("-".to_string())
+                } else {
+                    KbKey::Character("_".to_string())
+                }
+            }
             VirtualKeyCode::Mute => KbKey::AudioVolumeMute,
             VirtualKeyCode::MyComputer => KbKey::Unidentified,
             VirtualKeyCode::NavigateForward => KbKey::BrowserForward,
@@ -356,18 +608,42 @@ pub fn winit_key(input: &winit::event::KeyboardInput) -> KbKey {
             VirtualKeyCode::NextTrack => KbKey::MediaTrackNext,
             VirtualKeyCode::NoConvert => KbKey::NonConvert,
             VirtualKeyCode::OEM102 => KbKey::Unidentified,
-            VirtualKeyCode::Period => KbKey::Unidentified,
+            VirtualKeyCode::Period => {
+                if !shift {
+                    KbKey::Character(".".to_string())
+                } else {
+                    KbKey::Character(">".to_string())
+                }
+            }
             VirtualKeyCode::PlayPause => KbKey::MediaPlayPause,
             VirtualKeyCode::Plus => KbKey::Unidentified,
             VirtualKeyCode::Power => KbKey::Power,
             VirtualKeyCode::PrevTrack => KbKey::MediaTrackPrevious,
             VirtualKeyCode::RAlt => KbKey::Alt,
-            VirtualKeyCode::RBracket => KbKey::Unidentified,
+            VirtualKeyCode::RBracket => {
+                if !shift {
+                    KbKey::Character("]".to_string())
+                } else {
+                    KbKey::Character("}".to_string())
+                }
+            }
             VirtualKeyCode::RControl => KbKey::Control,
             VirtualKeyCode::RShift => KbKey::Shift,
             VirtualKeyCode::RWin => KbKey::Meta,
-            VirtualKeyCode::Semicolon => KbKey::Unidentified,
-            VirtualKeyCode::Slash => KbKey::Unidentified,
+            VirtualKeyCode::Semicolon => {
+                if !shift {
+                    KbKey::Character(";".to_string())
+                } else {
+                    KbKey::Character(":".to_string())
+                }
+            }
+            VirtualKeyCode::Slash => {
+                if !shift {
+                    KbKey::Character("/".to_string())
+                } else {
+                    KbKey::Character("?".to_string())
+                }
+            }
             VirtualKeyCode::Sleep => KbKey::Unidentified,
             VirtualKeyCode::Stop => KbKey::MediaStop,
             VirtualKeyCode::Sysrq => KbKey::Unidentified,

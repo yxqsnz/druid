@@ -295,8 +295,14 @@ impl<T: Data> Window<T> {
 
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
         let is_handled = {
-            let mut state =
-                ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+            let mut state = ContextState::new::<T>(
+                queue,
+                &self.ext_handle,
+                &self.handle,
+                self.id,
+                self.renderer.borrow().text(),
+                self.focus,
+            );
             let mut notifications = VecDeque::new();
             let mut ctx = EventCtx {
                 state: &mut state,
@@ -359,8 +365,14 @@ impl<T: Data> Window<T> {
         process_commands: bool,
     ) {
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
         let mut ctx = LifeCycleCtx {
             state: &mut state,
             widget_state: &mut widget_state,
@@ -379,8 +391,14 @@ impl<T: Data> Window<T> {
         self.update_title(data, env);
 
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
         let mut update_ctx = UpdateCtx {
             widget_state: &mut widget_state,
             state: &mut state,
@@ -405,9 +423,12 @@ impl<T: Data> Window<T> {
         if self.root.state().needs_layout {
             self.handle.invalidate();
         } else {
-            for rect in self.invalid.rects() {
-                self.handle.invalidate_rect(*rect);
+            if !self.invalid.is_empty() {
+                self.handle.invalidate();
             }
+            // for rect in self.invalid.rects() {
+            //     self.handle.invalidate_rect(*rect);
+            // }
         }
     }
 
@@ -442,10 +463,6 @@ impl<T: Data> Window<T> {
             self.layout(queue, data, env);
         }
 
-        let renderer = self.renderer.clone();
-        let mut renderer = renderer.borrow_mut();
-        let mut piet = Piet::new(&mut renderer);
-
         // for &r in invalid.rects() {
         //     piet.clear(
         //         Some(r),
@@ -459,14 +476,20 @@ impl<T: Data> Window<T> {
         self.invalid.clear();
         self.invalid.add_rect(self.size.to_rect());
         let invalid = self.invalid.clone();
-        self.paint(&mut piet, &invalid, queue, data, env);
-        piet.finish();
+        self.paint(&invalid, queue, data, env);
+        self.invalid.clear();
     }
 
     fn layout(&mut self, queue: &mut CommandQueue, data: &T, env: &Env) {
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
         let mut layout_ctx = LayoutCtx {
             state: &mut state,
             widget_state: &mut widget_state,
@@ -509,25 +532,31 @@ impl<T: Data> Window<T> {
         self.layout(queue, data, env)
     }
 
-    fn paint(
-        &mut self,
-        piet: &mut Piet,
-        invalid: &Region,
-        queue: &mut CommandQueue,
-        data: &T,
-        env: &Env,
-    ) {
+    fn paint(&mut self, invalid: &Region, queue: &mut CommandQueue, data: &T, env: &Env) {
         let widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
+
+        let renderer = self.renderer.clone();
+        let mut renderer = renderer.borrow_mut();
+        let mut piet = Piet::new(&mut renderer);
+
         let mut ctx = PaintCtx {
-            render_ctx: piet,
+            render_ctx: &mut piet,
             state: &mut state,
             widget_state: &widget_state,
             z_ops: Vec::new(),
             region: invalid.clone(),
             depth: 0,
         };
+
+        let start = std::time::SystemTime::now();
 
         let root = &mut self.root;
         info_span!("paint").in_scope(|| {
@@ -549,6 +578,18 @@ impl<T: Data> Window<T> {
         if self.wants_animation_frame() {
             self.handle.request_anim_frame();
         }
+
+        // println!(
+        //     "paint prepare took {}",
+        //     start.elapsed().unwrap().as_micros()
+        // );
+
+        let render_start = std::time::SystemTime::now();
+        piet.finish();
+        // println!(
+        //     "paint render took {}",
+        //     render_start.elapsed().unwrap().as_micros()
+        // );
     }
 
     /// Get a best-effort representation of the entire widget tree for debug purposes.

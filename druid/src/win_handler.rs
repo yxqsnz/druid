@@ -39,8 +39,8 @@ use crate::{
 use crate::app::{PendingWindow, WindowConfig};
 use crate::command::sys as sys_cmd;
 use druid_shell::kurbo::Point;
-use druid_shell::{Modifiers, MouseButtons, WindowBuilder};
-use winit::event_loop::EventLoop;
+use druid_shell::{Modifiers, MouseButtons, WindowBuilder, WinitEvent};
+use winit::event_loop::{EventLoop, EventLoopProxy};
 
 pub(crate) const RUN_COMMANDS_TOKEN: IdleToken = IdleToken::new(1);
 
@@ -708,7 +708,7 @@ impl<T: Data> AppState<T> {
         self.inner.borrow_mut().paint(window_id);
     }
 
-    fn idle(&mut self, token: IdleToken) {
+    pub(crate) fn idle(&mut self, token: IdleToken) {
         match token {
             RUN_COMMANDS_TOKEN => {
                 self.process_commands();
@@ -966,7 +966,7 @@ impl<T: Data> AppState<T> {
         id: WindowId,
         mut pending: PendingWindow<T>,
         config: WindowConfig,
-        event_loop: &EventLoop<()>,
+        event_loop: &EventLoop<WinitEvent>,
     ) -> Result<WindowHandle, PlatformError> {
         let builder = WindowBuilder::new(self.app());
         let builder = config.apply_to_builder(builder);
