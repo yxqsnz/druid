@@ -570,7 +570,13 @@ pub fn winit_key(input: &winit::event::KeyboardInput, shift: bool) -> KbKey {
                 }
             }
             VirtualKeyCode::Convert => KbKey::Convert,
-            VirtualKeyCode::Equals => KbKey::Unidentified,
+            VirtualKeyCode::Equals => {
+                if !shift {
+                    KbKey::Character("=".to_string())
+                } else {
+                    KbKey::Character("+".to_string())
+                }
+            }
             VirtualKeyCode::Grave => {
                 if !shift {
                     KbKey::Character("`".to_string())
