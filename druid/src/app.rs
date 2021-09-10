@@ -266,8 +266,6 @@ impl<T: Data> AppLauncher<T> {
             self.ext_event_host,
         );
 
-        event_loop.create_proxy();
-
         for desc in self.windows {
             let window = desc.build_native(&mut state, &event_loop)?;
             window.show();
@@ -313,20 +311,34 @@ impl<T: Data> AppLauncher<T> {
 
                         state.set_mods(&window_id, mods);
                     }
-                    // winit::event::WindowEvent::ReceivedCharacter(c) => {
-                    //     println!("receive char {}", c);
-                    //     let mods = if let Some(mods) = state.get_mods(&window_id) {
-                    //         mods
-                    //     } else {
-                    //         Modifiers::empty()
-                    //     };
-                    //     let mut key_event = KeyEvent::default();
-                    //     key_event.state = KeyState::Down;
-                    //     key_event.key = KbKey::Character(c.to_string());
-                    //     key_event.mods = mods;
-                    //     let event = Event::KeyDown(key_event);
-                    //     state.do_winit_window_event(event, &window_id);
-                    // }
+                    winit::event::WindowEvent::MouseWheel { delta, .. } => {
+                        let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                        let mods = state.get_mods(&window_id).unwrap_or(Modifiers::empty());
+                        let buttons = state
+                            .get_mouse_buttons(&window_id)
+                            .unwrap_or(MouseButtons::new());
+                        let delta = match delta {
+                            winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                                Vec2::new(x as f64, -y as f64)
+                            }
+                            winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                                Vec2::new(pos.x / scale, pos.y / scale)
+                            }
+                        };
+                        let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
+                        let mouse_event = MouseEvent {
+                            pos,
+                            window_pos: pos,
+                            buttons,
+                            mods,
+                            count: 0,
+                            focus: false,
+                            button: MouseButton::None,
+                            wheel_delta: delta,
+                        };
+                        let event = Event::Wheel(mouse_event);
+                        state.do_winit_window_event(event, &window_id);
+                    }
                     winit::event::WindowEvent::CursorMoved {
                         device_id,
                         position,
