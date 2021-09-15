@@ -319,10 +319,10 @@ impl<T: Data> AppLauncher<T> {
                             .unwrap_or(MouseButtons::new());
                         let delta = match delta {
                             winit::event::MouseScrollDelta::LineDelta(x, y) => {
-                                Vec2::new(x as f64, -y as f64)
+                                Vec2::new(x as f64, -y as f64 * 32.0)
                             }
                             winit::event::MouseScrollDelta::PixelDelta(pos) => {
-                                Vec2::new(pos.x / scale, pos.y / scale)
+                                Vec2::new(pos.x / scale, -pos.y / scale)
                             }
                         };
                         let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
@@ -413,7 +413,7 @@ impl<T: Data> AppLauncher<T> {
                         device_id,
                         is_synthetic,
                     } => {
-                        println!("keyboard input {:?}", input);
+                        // println!("keyboard input {:?}", input);
                         let mods = if let Some(mods) = state.get_mods(&window_id) {
                             mods
                         } else {
