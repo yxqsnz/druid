@@ -554,7 +554,7 @@ pub fn winit_key(input: &winit::event::KeyboardInput, shift: bool) -> KbKey {
             VirtualKeyCode::Ax => KbKey::Unidentified,
             VirtualKeyCode::Backslash => {
                 if !shift {
-                    KbKey::Character("/".to_string())
+                    KbKey::Character("\\".to_string())
                 } else {
                     KbKey::Character("|".to_string())
                 }

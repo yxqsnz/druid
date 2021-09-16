@@ -19,6 +19,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use copypasta::ClipboardContext;
 use winit::event_loop::EventLoopProxy;
 
 use crate::clipboard::Clipboard;
@@ -51,6 +52,7 @@ pub trait AppHandler {
 #[derive(Clone)]
 pub struct Application {
     pub(crate) state: Rc<RefCell<State>>,
+    pub(crate) clipboard: Clipboard,
 }
 
 /// Platform-independent `Application` state.
@@ -86,7 +88,10 @@ impl Application {
             running: false,
             event_proxy,
         }));
-        let app = Application { state };
+        let clipboard = Clipboard(Rc::new(RefCell::new(
+            ClipboardContext::new().map_err(|e| Error::WindowDropped)?,
+        )));
+        let app = Application { state, clipboard };
         GLOBAL_APP.with(|global_app| {
             *global_app.borrow_mut() = Some(app.clone());
         });
@@ -177,8 +182,7 @@ impl Application {
 
     /// Returns a handle to the system clipboard.
     pub fn clipboard(&self) -> Clipboard {
-        Clipboard()
-        // self.backend_app.clipboard().into()
+        self.clipboard.clone()
     }
 
     /// Returns the current locale string.

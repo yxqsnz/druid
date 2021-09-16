@@ -13,6 +13,10 @@
 // limitations under the License.
 
 //! Interacting with the system pasteboard/clipboard.
+
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
+
+use copypasta::{ClipboardContext, ClipboardProvider};
 // pub use crate::backend::clipboard as backend;
 
 /// A handle to the system clipboard.
@@ -125,12 +129,19 @@
 /// [`Universal Type Identifier`]: https://escapetech.eu/manuals/qdrop/uti.html
 /// [MIME types]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
 /// [`ClipboardFormat`]: struct.ClipboardFormat.html
-#[derive(Debug, Clone)]
-pub struct Clipboard();
+#[derive(Clone)]
+pub struct Clipboard(pub(crate) Rc<RefCell<ClipboardContext>>);
+
+impl Debug for Clipboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Clipboard")
+    }
+}
 
 impl Clipboard {
     /// Put a string onto the system clipboard.
     pub fn put_string(&mut self, s: impl AsRef<str>) {
+        self.0.borrow_mut().set_contents(s.as_ref().to_string());
         // self.0.put_string(s);
     }
 
@@ -141,7 +152,7 @@ impl Clipboard {
 
     /// Get a string from the system clipboard, if one is available.
     pub fn get_string(&self) -> Option<String> {
-        None
+        self.0.borrow_mut().get_contents().ok()
     }
 
     /// Given a list of supported clipboard types, returns the supported type which has

@@ -272,7 +272,7 @@ impl<T: Data> AppLauncher<T> {
         }
 
         event_loop.run(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Poll;
+            *control_flow = ControlFlow::Wait;
             match event {
                 winit::event::Event::UserEvent(event) => match event {
                     WinitEvent::Idle(token) => {
@@ -319,7 +319,7 @@ impl<T: Data> AppLauncher<T> {
                             .unwrap_or(MouseButtons::new());
                         let delta = match delta {
                             winit::event::MouseScrollDelta::LineDelta(x, y) => {
-                                Vec2::new(x as f64, -y as f64 * 32.0)
+                                Vec2::new(x as f64 * 32.0, -y as f64 * 32.0)
                             }
                             winit::event::MouseScrollDelta::PixelDelta(pos) => {
                                 Vec2::new(pos.x / scale, -pos.y / scale)
