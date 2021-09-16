@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::backend::menu as backend;
+// use crate::backend::menu as backend;
 use crate::hotkey::HotKey;
 
 /// A menu object.
@@ -25,12 +25,12 @@ use crate::hotkey::HotKey;
 /// Currently, a menu and its items cannot be changed once created. If you need
 /// to change anything about a menu (for instance, disabling or selecting items)
 /// you need to create a new menu with the desired properties.
-pub struct Menu(pub(crate) backend::Menu);
+pub struct Menu();
 
 impl Menu {
     /// Create a new empty window or application menu.
     pub fn new() -> Menu {
-        Menu(backend::Menu::new())
+        Menu()
     }
 
     /// Create a new empty context menu.
@@ -38,18 +38,16 @@ impl Menu {
     /// Some platforms distinguish between these types of menus, and some
     /// do not.
     pub fn new_for_popup() -> Menu {
-        Menu(backend::Menu::new_for_popup())
+        Menu()
     }
 
     /// Consume this `Menu`, returning the platform menu object.
-    pub(crate) fn into_inner(self) -> backend::Menu {
-        self.0
-    }
+    // pub(crate) fn into_inner(self) -> backend::Menu {
+    //     self.0
+    // }
 
     /// Add the provided `Menu` as a submenu of self, with the provided title.
-    pub fn add_dropdown(&mut self, menu: Menu, text: &str, enabled: bool) {
-        self.0.add_dropdown(menu.0, text, enabled)
-    }
+    pub fn add_dropdown(&mut self, menu: Menu, text: &str, enabled: bool) {}
 
     /// Add an item to this menu.
     ///
@@ -74,11 +72,8 @@ impl Menu {
         enabled: bool,
         selected: bool,
     ) {
-        self.0.add_item(id, text, key, enabled, selected)
     }
 
     /// Add a seperator to the menu.
-    pub fn add_separator(&mut self) {
-        self.0.add_separator()
-    }
+    pub fn add_separator(&mut self) {}
 }

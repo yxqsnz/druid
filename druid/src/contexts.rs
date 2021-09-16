@@ -14,6 +14,10 @@
 
 //! The context types that are passed into various widget methods.
 
+use druid_shell::{
+    kurbo::Shape,
+    piet::{IntoBrush, WgpuRenderer},
+};
 use std::{
     any::{Any, TypeId},
     collections::VecDeque,
@@ -375,6 +379,11 @@ impl_context_method!(EventCtx<'_, '_>, UpdateCtx<'_, '_>, LifeCycleCtx<'_, '_>, 
     ///
     /// [`layout`]: trait.Widget.html#tymethod.layout
     pub fn request_layout(&mut self) {
+        trace!("request_layout");
+        self.widget_state.needs_layout = true;
+    }
+
+    pub fn request_local_layout(&mut self) {
         trace!("request_layout");
         self.widget_state.needs_layout = true;
     }
@@ -891,6 +900,7 @@ impl<'a> ContextState<'a> {
         ext_handle: &'a ExtEventSink,
         window: &'a WindowHandle,
         window_id: WindowId,
+        text: PietText,
         focus_widget: Option<WidgetId>,
     ) -> Self {
         ContextState {
@@ -899,7 +909,7 @@ impl<'a> ContextState<'a> {
             window,
             window_id,
             focus_widget,
-            text: window.text(),
+            text,
             root_app_data_type: TypeId::of::<T>(),
         }
     }

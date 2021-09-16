@@ -9,6 +9,7 @@ categories = ["gui"]
 readme = "README.md"
 keywords = ["gui", "ui", "toolkit"]
 edition = "2018"
+resolver = "2"
 
 [package.metadata.docs.rs]
 # The "svg" and "image" features have doc clashes that cause undefined output in docs.
@@ -28,9 +29,6 @@ x11 = ["druid-shell/x11"]
 crochet = []
 serde = ["im/serde", "druid-shell/serde"]
 
-# Implement HasRawWindowHandle for WindowHandle
-raw-win-handle = ["druid-shell/raw-win-handle"]
-
 # passing on all the image features. AVIF is not supported because it does not
 # support decoding, and that's all we use `Image` for.
 png = ["druid-shell/image_png"]
@@ -49,14 +47,35 @@ dxt = ["druid-shell/dxt"]
 hdr = ["druid-shell/hdr"]
 
 # Remember to update this when changing an image feature.
-image-all = ["image", "svg", "png", "jpeg", "jpeg_rayon", "gif", "bmp", "ico", "tiff", "webp", "pnm", "dds", "tga", "farbfeld", "dxt", "hdr"]
+image-all = [
+	"image",
+	"svg",
+	"png",
+	"jpeg",
+	"jpeg_rayon",
+	"gif",
+	"bmp",
+	"ico",
+	"tiff",
+	"webp",
+	"pnm",
+	"dds",
+	"tga",
+	"farbfeld",
+	"dxt",
+	"hdr",
+]
 
 [dependencies]
+winit = "0.25.0"
 druid-shell = { version = "0.7.0", default-features = false, path = "../druid-shell" }
 druid-derive = { version = "0.4.0", path = "../druid-derive" }
 
 tracing = { version = "0.1.22" }
-tracing-subscriber = { version = "0.2.15", features = ["fmt", "ansi"], default-features = false }
+tracing-subscriber = { version = "0.2.15", features = [
+	"fmt",
+	"ansi",
+], default-features = false }
 fluent-bundle = "0.15.1"
 fluent-langneg = "0.13.0"
 fluent-syntax = "0.11.0"
@@ -81,7 +100,9 @@ float-cmp = { version = "0.8.0", features = ["std"], default-features = false }
 tempfile = "=3.1.0"
 piet-common = { version = "=0.5.0-pre1", features = ["png"] }
 pulldown-cmark = { version = "0.8", default-features = false }
-test-env-log = { version = "0.2.5", features = ["trace"], default-features = false }
+test-env-log = { version = "0.2.5", features = [
+	"trace",
+], default-features = false }
 # test-env-log needs it
 tracing-subscriber = { version = "0.2.15", features = ["env-filter"] }
 

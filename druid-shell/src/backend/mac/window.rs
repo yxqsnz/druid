@@ -296,7 +296,6 @@ impl WindowBuilder {
             // set_window_state above could have invalidated the frame size
             let frame = NSView::frame(content_view);
 
-            (*view_state).handler.connect(&handle.clone().into());
             (*view_state).handler.scale(Scale::default());
             (*view_state)
                 .handler
@@ -531,7 +530,7 @@ fn make_view(handler: Box<dyn WinHandler>) -> (id, Weak<Mutex<Vec<IdleKind>>>) {
             focus_click: false,
             mouse_left: true,
             keyboard_state,
-            text: PietText::new_with_unique_state(),
+            text: PietText::new(),
             active_text_input: None,
         };
         let state_ptr = Box::into_raw(Box::new(state));
@@ -839,7 +838,7 @@ extern "C" fn draw_rect(this: &mut Object, _: Sel, dirtyRect: NSRect) {
 
         let view_state: *mut c_void = *this.get_ivar("viewState");
         let view_state = &mut *(view_state as *mut ViewState);
-        let mut piet_ctx = Piet::new_y_down(cgcontext_ref, Some(view_state.text.clone()));
+        let mut piet_ctx = Piet::new();
 
         (*view_state).handler.paint(&mut piet_ctx, &invalid);
         if let Err(e) = piet_ctx.finish() {
@@ -1048,12 +1047,10 @@ impl WindowHandle {
                 Cursor::IBeam => msg_send![nscursor, IBeamCursor],
                 Cursor::Pointer => msg_send![nscursor, pointingHandCursor],
                 Cursor::Crosshair => msg_send![nscursor, crosshairCursor],
-                Cursor::OpenHand => msg_send![nscursor, openHandCursor],
                 Cursor::NotAllowed => msg_send![nscursor, operationNotAllowedCursor],
                 Cursor::ResizeLeftRight => msg_send![nscursor, resizeLeftRightCursor],
                 Cursor::ResizeUpDown => msg_send![nscursor, resizeUpDownCursor],
                 // TODO: support custom cursors
-                Cursor::Custom(_) => msg_send![nscursor, arrowCursor],
             };
             let () = msg_send![cursor, set];
         }
@@ -1088,7 +1085,7 @@ impl WindowHandle {
                 (*(state as *mut ViewState)).text.clone()
             } else {
                 // this codepath should only happen during tests in druid, when view is nil
-                PietText::new_with_unique_state()
+                PietText::new()
             }
         }
     }

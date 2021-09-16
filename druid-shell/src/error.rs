@@ -17,8 +17,6 @@
 use std::fmt;
 use std::sync::Arc;
 
-use crate::backend::error as backend;
-
 /// Shell errors.
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -26,8 +24,6 @@ pub enum Error {
     ApplicationAlreadyExists,
     /// The window has already been destroyed.
     WindowDropped,
-    /// Platform specific error.
-    Platform(backend::Error),
     /// Other miscellaneous error.
     Other(Arc<anyhow::Error>),
 }
@@ -38,7 +34,6 @@ impl fmt::Display for Error {
             Error::ApplicationAlreadyExists => {
                 write!(f, "An application instance has already been created.")
             }
-            Error::Platform(err) => fmt::Display::fmt(err, f),
             Error::WindowDropped => write!(f, "The window has already been destroyed."),
             Error::Other(s) => write!(f, "{}", s),
         }
@@ -50,11 +45,5 @@ impl std::error::Error for Error {}
 impl From<anyhow::Error> for Error {
     fn from(src: anyhow::Error) -> Error {
         Error::Other(Arc::new(src))
-    }
-}
-
-impl From<backend::Error> for Error {
-    fn from(src: backend::Error) -> Error {
-        Error::Platform(src)
     }
 }

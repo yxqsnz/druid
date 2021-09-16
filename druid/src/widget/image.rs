@@ -253,265 +253,265 @@ impl<T: Data> Widget<T> for Image {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::piet::ImageFormat;
-    use test_env_log::test;
-
-    /// Painting an empty image shouldn't crash druid.
-    #[test]
-    fn empty_paint() {
-        use crate::{tests::harness::Harness, WidgetId};
-
-        let _id_1 = WidgetId::next();
-        let image_data = ImageBuf::empty();
-
-        let image_widget =
-            Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
-
-        Harness::create_with_render(
-            (),
-            image_widget,
-            Size::new(400., 600.),
-            |harness| {
-                harness.send_initial_events();
-                harness.just_layout();
-                harness.paint();
-            },
-            |_target| {
-                // if we painted the image, then success!
-            },
-        )
-    }
-
-    #[test]
-    fn tall_paint() {
-        use crate::{tests::harness::Harness, WidgetId};
-
-        let _id_1 = WidgetId::next();
-        let image_data = ImageBuf::from_raw(
-            vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
-            ImageFormat::Rgb,
-            2,
-            2,
-        );
-
-        let image_widget =
-            Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
-
-        Harness::create_with_render(
-            (),
-            image_widget,
-            Size::new(400., 600.),
-            |harness| {
-                harness.send_initial_events();
-                harness.just_layout();
-                harness.paint();
-            },
-            |target| {
-                let raw_pixels = target.into_raw();
-                assert_eq!(raw_pixels.len(), 400 * 600 * 4);
-
-                // Being a tall widget with a square image the top and bottom rows will be
-                // the padding color and the middle rows will not have any padding.
-
-                // Check that the middle row 400 pix wide is 200 black then 200 white.
-                let expecting: Vec<u8> = [
-                    vec![0, 0, 0, 255].repeat(200),
-                    vec![255, 255, 255, 255].repeat(200),
-                ]
-                .concat();
-                assert_eq!(raw_pixels[400 * 300 * 4..400 * 301 * 4], expecting[..]);
-
-                // Check that all of the last 100 rows are all the background color.
-                let expecting: Vec<u8> = vec![41, 41, 41, 255].repeat(400 * 100);
-                assert_eq!(
-                    raw_pixels[400 * 600 * 4 - 4 * 400 * 100..400 * 600 * 4],
-                    expecting[..]
-                );
-            },
-        )
-    }
-
-    #[test]
-    fn wide_paint() {
-        use crate::{tests::harness::Harness, WidgetId};
-        let _id_1 = WidgetId::next();
-        let image_data = ImageBuf::from_raw(
-            vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
-            ImageFormat::Rgb,
-            2,
-            2,
-        );
-
-        let image_widget =
-            Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
-
-        Harness::create_with_render(
-            true,
-            image_widget,
-            Size::new(600., 400.),
-            |harness| {
-                harness.send_initial_events();
-                harness.just_layout();
-                harness.paint();
-            },
-            |target| {
-                let raw_pixels = target.into_raw();
-                assert_eq!(raw_pixels.len(), 400 * 600 * 4);
-
-                // Being a wide widget every row will have some padding at the start and end
-                // the last row will be like this too and there will be no padding rows at the end.
-
-                // A middle row of 600 pixels is 100 padding 200 black, 200 white and then 100 padding.
-                let expecting: Vec<u8> = [
-                    vec![41, 41, 41, 255].repeat(100),
-                    vec![255, 255, 255, 255].repeat(200),
-                    vec![0, 0, 0, 255].repeat(200),
-                    vec![41, 41, 41, 255].repeat(100),
-                ]
-                .concat();
-                assert_eq!(raw_pixels[199 * 600 * 4..200 * 600 * 4], expecting[..]);
-
-                // The final row of 600 pixels is 100 padding 200 black, 200 white and then 100 padding.
-                let expecting: Vec<u8> = [
-                    vec![41, 41, 41, 255].repeat(100),
-                    vec![0, 0, 0, 255].repeat(200),
-                    vec![255, 255, 255, 255].repeat(200),
-                    vec![41, 41, 41, 255].repeat(100),
-                ]
-                .concat();
-                assert_eq!(raw_pixels[399 * 600 * 4..400 * 600 * 4], expecting[..]);
-            },
-        );
-    }
-
-    #[test]
-    fn into_png() {
-        use crate::{
-            tests::{harness::Harness, temp_dir_for_test},
-            WidgetId,
-        };
-        let _id_1 = WidgetId::next();
-        let image_data = ImageBuf::from_raw(
-            vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
-            ImageFormat::Rgb,
-            2,
-            2,
-        );
-
-        let image_widget =
-            Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
-
-        Harness::create_with_render(
-            true,
-            image_widget,
-            Size::new(600., 400.),
-            |harness| {
-                harness.send_initial_events();
-                harness.just_layout();
-                harness.paint();
-            },
-            |target| {
-                let tmp_dir = temp_dir_for_test();
-                target.into_png(tmp_dir.join("image.png")).unwrap();
-            },
-        );
-    }
-
-    #[test]
-    fn width_bound_layout() {
-        use crate::{
-            tests::harness::Harness,
-            widget::{Container, Scroll},
-            WidgetExt, WidgetId,
-        };
-        use float_cmp::approx_eq;
-
-        let id_1 = WidgetId::next();
-        let image_data = ImageBuf::from_raw(
-            vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
-            ImageFormat::Rgb,
-            2,
-            2,
-        );
-
-        let image_widget =
-            Scroll::new(Container::new(Image::new(image_data)).with_id(id_1)).vertical();
-
-        Harness::create_simple(true, image_widget, |harness| {
-            harness.send_initial_events();
-            harness.just_layout();
-            let state = harness.get_state(id_1);
-            assert!(approx_eq!(f64, state.layout_rect().x1, 400.0));
-        })
-    }
-
-    #[test]
-    fn height_bound_layout() {
-        use crate::{
-            tests::harness::Harness,
-            widget::{Container, Scroll},
-            WidgetExt, WidgetId,
-        };
-        use float_cmp::approx_eq;
-
-        let id_1 = WidgetId::next();
-        let image_data = ImageBuf::from_raw(
-            vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
-            ImageFormat::Rgb,
-            2,
-            2,
-        );
-
-        let image_widget =
-            Scroll::new(Container::new(Image::new(image_data)).with_id(id_1)).horizontal();
-
-        Harness::create_simple(true, image_widget, |harness| {
-            harness.send_initial_events();
-            harness.just_layout();
-            let state = harness.get_state(id_1);
-            assert!(approx_eq!(f64, state.layout_rect().x1, 400.0));
-        })
-    }
-
-    #[test]
-    fn image_clip_area() {
-        use crate::{tests::harness::Harness, WidgetId};
-        use std::iter;
-
-        let _id_1 = WidgetId::next();
-        let image_data = ImageBuf::from_raw(
-            vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
-            ImageFormat::Rgb,
-            2,
-            2,
-        );
-
-        let image_widget = Image::new(image_data)
-            .interpolation_mode(InterpolationMode::NearestNeighbor)
-            .clip_area(Some(Rect::new(1., 1., 2., 2.)));
-
-        Harness::create_with_render(
-            true,
-            image_widget,
-            Size::new(2., 2.),
-            |harness| {
-                harness.send_initial_events();
-                harness.just_layout();
-                harness.paint();
-            },
-            |target| {
-                let raw_pixels = target.into_raw();
-                assert_eq!(raw_pixels.len(), 4 * 4);
-
-                // Because we clipped to the bottom pixel, all pixels in the final image should
-                // match it.
-                let expecting: Vec<u8> = iter::repeat(255).take(16).collect();
-                assert_eq!(&*raw_pixels, &*expecting);
-            },
-        )
-    }
-}
+// #[cfg(not(target_arch = "wasm32"))]
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::piet::ImageFormat;
+//     use test_env_log::test;
+//
+//     /// Painting an empty image shouldn't crash druid.
+//     #[test]
+//     fn empty_paint() {
+//         use crate::{tests::harness::Harness, WidgetId};
+//
+//         let _id_1 = WidgetId::next();
+//         let image_data = ImageBuf::empty();
+//
+//         let image_widget =
+//             Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
+//
+//         Harness::create_with_render(
+//             (),
+//             image_widget,
+//             Size::new(400., 600.),
+//             |harness| {
+//                 harness.send_initial_events();
+//                 harness.just_layout();
+//                 harness.paint();
+//             },
+//             |_target| {
+//                 // if we painted the image, then success!
+//             },
+//         )
+//     }
+//
+//     #[test]
+//     fn tall_paint() {
+//         use crate::{tests::harness::Harness, WidgetId};
+//
+//         let _id_1 = WidgetId::next();
+//         let image_data = ImageBuf::from_raw(
+//             vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
+//             ImageFormat::Rgb,
+//             2,
+//             2,
+//         );
+//
+//         let image_widget =
+//             Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
+//
+//         Harness::create_with_render(
+//             (),
+//             image_widget,
+//             Size::new(400., 600.),
+//             |harness| {
+//                 harness.send_initial_events();
+//                 harness.just_layout();
+//                 harness.paint();
+//             },
+//             |target| {
+//                 let raw_pixels = target.into_raw();
+//                 assert_eq!(raw_pixels.len(), 400 * 600 * 4);
+//
+//                 // Being a tall widget with a square image the top and bottom rows will be
+//                 // the padding color and the middle rows will not have any padding.
+//
+//                 // Check that the middle row 400 pix wide is 200 black then 200 white.
+//                 let expecting: Vec<u8> = [
+//                     vec![0, 0, 0, 255].repeat(200),
+//                     vec![255, 255, 255, 255].repeat(200),
+//                 ]
+//                 .concat();
+//                 assert_eq!(raw_pixels[400 * 300 * 4..400 * 301 * 4], expecting[..]);
+//
+//                 // Check that all of the last 100 rows are all the background color.
+//                 let expecting: Vec<u8> = vec![41, 41, 41, 255].repeat(400 * 100);
+//                 assert_eq!(
+//                     raw_pixels[400 * 600 * 4 - 4 * 400 * 100..400 * 600 * 4],
+//                     expecting[..]
+//                 );
+//             },
+//         )
+//     }
+//
+//     #[test]
+//     fn wide_paint() {
+//         use crate::{tests::harness::Harness, WidgetId};
+//         let _id_1 = WidgetId::next();
+//         let image_data = ImageBuf::from_raw(
+//             vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
+//             ImageFormat::Rgb,
+//             2,
+//             2,
+//         );
+//
+//         let image_widget =
+//             Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
+//
+//         Harness::create_with_render(
+//             true,
+//             image_widget,
+//             Size::new(600., 400.),
+//             |harness| {
+//                 harness.send_initial_events();
+//                 harness.just_layout();
+//                 harness.paint();
+//             },
+//             |target| {
+//                 let raw_pixels = target.into_raw();
+//                 assert_eq!(raw_pixels.len(), 400 * 600 * 4);
+//
+//                 // Being a wide widget every row will have some padding at the start and end
+//                 // the last row will be like this too and there will be no padding rows at the end.
+//
+//                 // A middle row of 600 pixels is 100 padding 200 black, 200 white and then 100 padding.
+//                 let expecting: Vec<u8> = [
+//                     vec![41, 41, 41, 255].repeat(100),
+//                     vec![255, 255, 255, 255].repeat(200),
+//                     vec![0, 0, 0, 255].repeat(200),
+//                     vec![41, 41, 41, 255].repeat(100),
+//                 ]
+//                 .concat();
+//                 assert_eq!(raw_pixels[199 * 600 * 4..200 * 600 * 4], expecting[..]);
+//
+//                 // The final row of 600 pixels is 100 padding 200 black, 200 white and then 100 padding.
+//                 let expecting: Vec<u8> = [
+//                     vec![41, 41, 41, 255].repeat(100),
+//                     vec![0, 0, 0, 255].repeat(200),
+//                     vec![255, 255, 255, 255].repeat(200),
+//                     vec![41, 41, 41, 255].repeat(100),
+//                 ]
+//                 .concat();
+//                 assert_eq!(raw_pixels[399 * 600 * 4..400 * 600 * 4], expecting[..]);
+//             },
+//         );
+//     }
+//
+//     #[test]
+//     fn into_png() {
+//         use crate::{
+//             tests::{harness::Harness, temp_dir_for_test},
+//             WidgetId,
+//         };
+//         let _id_1 = WidgetId::next();
+//         let image_data = ImageBuf::from_raw(
+//             vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
+//             ImageFormat::Rgb,
+//             2,
+//             2,
+//         );
+//
+//         let image_widget =
+//             Image::new(image_data).interpolation_mode(InterpolationMode::NearestNeighbor);
+//
+//         Harness::create_with_render(
+//             true,
+//             image_widget,
+//             Size::new(600., 400.),
+//             |harness| {
+//                 harness.send_initial_events();
+//                 harness.just_layout();
+//                 harness.paint();
+//             },
+//             |target| {
+//                 let tmp_dir = temp_dir_for_test();
+//                 target.into_png(tmp_dir.join("image.png")).unwrap();
+//             },
+//         );
+//     }
+//
+//     #[test]
+//     fn width_bound_layout() {
+//         use crate::{
+//             tests::harness::Harness,
+//             widget::{Container, Scroll},
+//             WidgetExt, WidgetId,
+//         };
+//         use float_cmp::approx_eq;
+//
+//         let id_1 = WidgetId::next();
+//         let image_data = ImageBuf::from_raw(
+//             vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
+//             ImageFormat::Rgb,
+//             2,
+//             2,
+//         );
+//
+//         let image_widget =
+//             Scroll::new(Container::new(Image::new(image_data)).with_id(id_1)).vertical();
+//
+//         Harness::create_simple(true, image_widget, |harness| {
+//             harness.send_initial_events();
+//             harness.just_layout();
+//             let state = harness.get_state(id_1);
+//             assert!(approx_eq!(f64, state.layout_rect().x1, 400.0));
+//         })
+//     }
+//
+//     #[test]
+//     fn height_bound_layout() {
+//         use crate::{
+//             tests::harness::Harness,
+//             widget::{Container, Scroll},
+//             WidgetExt, WidgetId,
+//         };
+//         use float_cmp::approx_eq;
+//
+//         let id_1 = WidgetId::next();
+//         let image_data = ImageBuf::from_raw(
+//             vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
+//             ImageFormat::Rgb,
+//             2,
+//             2,
+//         );
+//
+//         let image_widget =
+//             Scroll::new(Container::new(Image::new(image_data)).with_id(id_1)).horizontal();
+//
+//         Harness::create_simple(true, image_widget, |harness| {
+//             harness.send_initial_events();
+//             harness.just_layout();
+//             let state = harness.get_state(id_1);
+//             assert!(approx_eq!(f64, state.layout_rect().x1, 400.0));
+//         })
+//     }
+//
+//     #[test]
+//     fn image_clip_area() {
+//         use crate::{tests::harness::Harness, WidgetId};
+//         use std::iter;
+//
+//         let _id_1 = WidgetId::next();
+//         let image_data = ImageBuf::from_raw(
+//             vec![255, 255, 255, 0, 0, 0, 0, 0, 0, 255, 255, 255],
+//             ImageFormat::Rgb,
+//             2,
+//             2,
+//         );
+//
+//         let image_widget = Image::new(image_data)
+//             .interpolation_mode(InterpolationMode::NearestNeighbor)
+//             .clip_area(Some(Rect::new(1., 1., 2., 2.)));
+//
+//         Harness::create_with_render(
+//             true,
+//             image_widget,
+//             Size::new(2., 2.),
+//             |harness| {
+//                 harness.send_initial_events();
+//                 harness.just_layout();
+//                 harness.paint();
+//             },
+//             |target| {
+//                 let raw_pixels = target.into_raw();
+//                 assert_eq!(raw_pixels.len(), 4 * 4);
+//
+//                 // Because we clipped to the bottom pixel, all pixels in the final image should
+//                 // match it.
+//                 let expecting: Vec<u8> = iter::repeat(255).take(16).collect();
+//                 assert_eq!(&*raw_pixels, &*expecting);
+//             },
+//         )
+//     }
+// }

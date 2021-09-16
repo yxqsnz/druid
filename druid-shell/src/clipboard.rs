@@ -13,7 +13,11 @@
 // limitations under the License.
 
 //! Interacting with the system pasteboard/clipboard.
-pub use crate::backend::clipboard as backend;
+
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
+
+use copypasta::{ClipboardContext, ClipboardProvider};
+// pub use crate::backend::clipboard as backend;
 
 /// A handle to the system clipboard.
 ///
@@ -125,29 +129,36 @@ pub use crate::backend::clipboard as backend;
 /// [`Universal Type Identifier`]: https://escapetech.eu/manuals/qdrop/uti.html
 /// [MIME types]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
 /// [`ClipboardFormat`]: struct.ClipboardFormat.html
-#[derive(Debug, Clone)]
-pub struct Clipboard(pub(crate) backend::Clipboard);
+#[derive(Clone)]
+pub struct Clipboard(pub(crate) Rc<RefCell<ClipboardContext>>);
+
+impl Debug for Clipboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Clipboard")
+    }
+}
 
 impl Clipboard {
     /// Put a string onto the system clipboard.
     pub fn put_string(&mut self, s: impl AsRef<str>) {
-        self.0.put_string(s);
+        self.0.borrow_mut().set_contents(s.as_ref().to_string());
+        // self.0.put_string(s);
     }
 
     /// Put multi-format data on the system clipboard.
     pub fn put_formats(&mut self, formats: &[ClipboardFormat]) {
-        self.0.put_formats(formats)
+        // self.0.put_formats(formats)
     }
 
     /// Get a string from the system clipboard, if one is available.
     pub fn get_string(&self) -> Option<String> {
-        self.0.get_string()
+        self.0.borrow_mut().get_contents().ok()
     }
 
     /// Given a list of supported clipboard types, returns the supported type which has
     /// highest priority on the system clipboard, or `None` if no types are supported.
     pub fn preferred_format(&self, formats: &[FormatId]) -> Option<FormatId> {
-        self.0.preferred_format(formats)
+        None
     }
 
     /// Return data in a given format, if available.
@@ -158,14 +169,14 @@ impl Clipboard {
     /// [`Clipboard::preferred_format`]: struct.Clipboard.html#method.preferred_format
     /// [`FormatId`]: type.FormatId.html
     pub fn get_format(&self, format: FormatId) -> Option<Vec<u8>> {
-        self.0.get_format(format)
+        None
     }
 
     /// For debugging: print the resolved identifiers for each type currently
     /// on the clipboard.
     #[doc(hidden)]
     pub fn available_type_names(&self) -> Vec<String> {
-        self.0.available_type_names()
+        vec![]
     }
 }
 
@@ -205,12 +216,6 @@ impl From<String> for ClipboardFormat {
 impl From<&str> for ClipboardFormat {
     fn from(src: &str) -> ClipboardFormat {
         src.to_string().into()
-    }
-}
-
-impl From<backend::Clipboard> for Clipboard {
-    fn from(src: backend::Clipboard) -> Clipboard {
-        Clipboard(src)
     }
 }
 

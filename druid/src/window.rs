@@ -14,8 +14,12 @@
 
 //! Management of multiple windows.
 
+use druid_shell::piet::WgpuRenderer;
+use druid_shell::{Modifiers, MouseButtons};
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::mem;
+use std::rc::Rc;
 use tracing::{error, info, info_span};
 
 // Automatically defaults to std::time::Instant on non Wasm platforms
@@ -52,19 +56,24 @@ pub struct Window<T> {
     pub(crate) title: LabelText<T>,
     size_policy: WindowSizePolicy,
     size: Size,
+    pub(crate) scale: f64,
     invalid: Region,
     pub(crate) menu: Option<MenuManager<T>>,
     pub(crate) context_menu: Option<(MenuManager<T>, Point)>,
     // This will be `Some` whenever the most recently displayed frame was an animation frame.
     pub(crate) last_anim: Option<Instant>,
     pub(crate) last_mouse_pos: Option<Point>,
+    pub(crate) last_mouse_buttons: Option<MouseButtons>,
     pub(crate) focus: Option<WidgetId>,
+    last_focus: Option<WidgetId>,
     pub(crate) handle: WindowHandle,
+    pub(crate) renderer: Rc<RefCell<WgpuRenderer>>,
     pub(crate) timers: HashMap<TimerToken, WidgetId>,
     pub(crate) transparent: bool,
     pub(crate) ime_handlers: Vec<(TextFieldToken, TextFieldRegistration)>,
     ext_handle: ExtEventSink,
     pub(crate) ime_focus_change: Option<Option<TextFieldToken>>,
+    pub(crate) mods: Modifiers,
 }
 
 impl<T> Window<T> {
@@ -74,11 +83,19 @@ impl<T> Window<T> {
         pending: PendingWindow<T>,
         ext_handle: ExtEventSink,
     ) -> Window<T> {
+        let size = handle.get_size();
+        let scale = handle.get_scale();
+        let mut renderer = WgpuRenderer::new(&handle).unwrap();
+        renderer.set_size(size);
+        renderer.set_scale(scale);
+
+        let size = size / scale;
         Window {
             id,
             root: WidgetPod::new(pending.root),
             size_policy: pending.size_policy,
-            size: Size::ZERO,
+            size,
+            scale,
             invalid: Region::EMPTY,
             title: pending.title,
             transparent: pending.transparent,
@@ -86,9 +103,13 @@ impl<T> Window<T> {
             context_menu: None,
             last_anim: None,
             last_mouse_pos: None,
+            last_mouse_buttons: None,
             focus: None,
+            last_focus: None,
             handle,
+            renderer: Rc::new(RefCell::new(renderer)),
             timers: HashMap::new(),
+            mods: Modifiers::empty(),
             ext_handle,
             ime_handlers: Vec::new(),
             ime_focus_change: None,
@@ -236,9 +257,17 @@ impl<T: Data> Window<T> {
         env: &Env,
     ) -> Handled {
         match &event {
-            Event::WindowSize(size) => self.size = *size,
+            Event::WindowSize(size, new_scale) => {
+                if let Some(scale) = new_scale {
+                    self.scale = *scale;
+                }
+                self.size = *size / self.scale;
+                println!("size is {}", self.size);
+                self.renderer.borrow_mut().set_size(*size);
+            }
             Event::MouseDown(e) | Event::MouseUp(e) | Event::MouseMove(e) | Event::Wheel(e) => {
-                self.last_mouse_pos = Some(e.pos)
+                self.last_mouse_pos = Some(e.pos);
+                self.last_mouse_buttons = Some(e.buttons);
             }
             Event::Internal(InternalEvent::MouseLeave) => self.last_mouse_pos = None,
             _ => (),
@@ -268,8 +297,14 @@ impl<T: Data> Window<T> {
 
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
         let is_handled = {
-            let mut state =
-                ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+            let mut state = ContextState::new::<T>(
+                queue,
+                &self.ext_handle,
+                &self.handle,
+                self.id,
+                self.renderer.borrow().text(),
+                self.focus,
+            );
             let mut notifications = VecDeque::new();
             let mut ctx = EventCtx {
                 state: &mut state,
@@ -311,7 +346,7 @@ impl<T: Data> Window<T> {
 
         if matches!(
             (event, self.size_policy),
-            (Event::WindowSize(_), WindowSizePolicy::Content)
+            (Event::WindowSize(_, _), WindowSizePolicy::Content)
         ) {
             // Because our initial size can be zero, the window system won't ask us to paint.
             // So layout ourselves and hopefully we resize
@@ -332,8 +367,14 @@ impl<T: Data> Window<T> {
         process_commands: bool,
     ) {
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
         let mut ctx = LifeCycleCtx {
             state: &mut state,
             widget_state: &mut widget_state,
@@ -352,8 +393,14 @@ impl<T: Data> Window<T> {
         self.update_title(data, env);
 
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
         let mut update_ctx = UpdateCtx {
             widget_state: &mut widget_state,
             state: &mut state,
@@ -378,11 +425,13 @@ impl<T: Data> Window<T> {
         if self.root.state().needs_layout {
             self.handle.invalidate();
         } else {
-            for rect in self.invalid.rects() {
-                self.handle.invalidate_rect(*rect);
+            if !self.invalid.is_empty() {
+                self.handle.invalidate();
             }
+            // for rect in self.invalid.rects() {
+            //     self.handle.invalidate_rect(*rect);
+            // }
         }
-        self.invalid.clear();
     }
 
     #[allow(dead_code)]
@@ -411,35 +460,38 @@ impl<T: Data> Window<T> {
         }
     }
 
-    pub(crate) fn do_paint(
-        &mut self,
-        piet: &mut Piet,
-        invalid: &Region,
-        queue: &mut CommandQueue,
-        data: &T,
-        env: &Env,
-    ) {
+    pub(crate) fn do_paint(&mut self, queue: &mut CommandQueue, data: &T, env: &Env) {
         if self.root.state().needs_layout {
             self.layout(queue, data, env);
         }
 
-        for &r in invalid.rects() {
-            piet.clear(
-                Some(r),
-                if self.transparent {
-                    Color::TRANSPARENT
-                } else {
-                    env.get(crate::theme::WINDOW_BACKGROUND_COLOR)
-                },
-            );
-        }
-        self.paint(piet, invalid, queue, data, env);
+        // for &r in invalid.rects() {
+        //     piet.clear(
+        //         Some(r),
+        //         if self.transparent {
+        //             Color::TRANSPARENT
+        //         } else {
+        //             env.get(crate::theme::WINDOW_BACKGROUND_COLOR)
+        //         },
+        //     );
+        // }
+        self.invalid.clear();
+        self.invalid.add_rect(self.size.to_rect());
+        let invalid = self.invalid.clone();
+        self.paint(&invalid, queue, data, env);
+        self.invalid.clear();
     }
 
     fn layout(&mut self, queue: &mut CommandQueue, data: &T, env: &Env) {
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
         let mut layout_ctx = LayoutCtx {
             state: &mut state,
             widget_state: &mut widget_state,
@@ -482,25 +534,31 @@ impl<T: Data> Window<T> {
         self.layout(queue, data, env)
     }
 
-    fn paint(
-        &mut self,
-        piet: &mut Piet,
-        invalid: &Region,
-        queue: &mut CommandQueue,
-        data: &T,
-        env: &Env,
-    ) {
+    fn paint(&mut self, invalid: &Region, queue: &mut CommandQueue, data: &T, env: &Env) {
         let widget_state = WidgetState::new(self.root.id(), Some(self.size));
-        let mut state =
-            ContextState::new::<T>(queue, &self.ext_handle, &self.handle, self.id, self.focus);
+        let mut state = ContextState::new::<T>(
+            queue,
+            &self.ext_handle,
+            &self.handle,
+            self.id,
+            self.renderer.borrow().text(),
+            self.focus,
+        );
+
+        let renderer = self.renderer.clone();
+        let mut renderer = renderer.borrow_mut();
+        let mut piet = Piet::new(&mut renderer);
+
         let mut ctx = PaintCtx {
-            render_ctx: piet,
+            render_ctx: &mut piet,
             state: &mut state,
             widget_state: &widget_state,
             z_ops: Vec::new(),
             region: invalid.clone(),
             depth: 0,
         };
+
+        let start = std::time::SystemTime::now();
 
         let root = &mut self.root;
         info_span!("paint").in_scope(|| {
@@ -522,6 +580,18 @@ impl<T: Data> Window<T> {
         if self.wants_animation_frame() {
             self.handle.request_anim_frame();
         }
+
+        // println!(
+        //     "paint prepare took {}",
+        //     start.elapsed().unwrap().as_micros()
+        // );
+
+        let render_start = std::time::SystemTime::now();
+        piet.finish();
+        // println!(
+        //     "paint render took {}",
+        //     render_start.elapsed().unwrap().as_micros()
+        // );
     }
 
     /// Get a best-effort representation of the entire widget tree for debug purposes.
@@ -574,6 +644,7 @@ impl<T: Data> Window<T> {
             if old != new {
                 let event = LifeCycle::Internal(InternalLifeCycle::RouteFocusChanged { old, new });
                 self.lifecycle(queue, &event, data, env, false);
+                self.last_focus = self.focus;
                 self.focus = new;
                 // check if the newly focused widget has an IME session, and
                 // notify the system if so.
@@ -609,15 +680,16 @@ impl<T: Data> Window<T> {
     /// This will be called from outside the main app state in order to avoid
     /// reentrancy problems.
     pub(crate) fn ime_invalidation_fn(&self, widget: WidgetId) -> Option<Box<ImeUpdateFn>> {
-        let token = self
-            .ime_handlers
-            .iter()
-            .find(|(_, reg)| reg.widget_id == widget)
-            .map(|(t, _)| *t)?;
-        let window_handle = self.handle.clone();
-        Some(Box::new(move |event| {
-            window_handle.update_text_field(token, event)
-        }))
+        None
+        // let token = self
+        //     .ime_handlers
+        //     .iter()
+        //     .find(|(_, reg)| reg.widget_id == widget)
+        //     .map(|(t, _)| *t)?;
+        // let window_handle = self.handle.clone();
+        // Some(Box::new(move |event| {
+        //     window_handle.update_text_field(token, event)
+        // }))
     }
 
     /// Release a lock on an IME session, returning a `WidgetId` if the lock was mutable.
@@ -633,7 +705,7 @@ impl<T: Data> Window<T> {
 
     fn widget_for_focus_request(&self, focus: FocusChange) -> Option<WidgetId> {
         match focus {
-            FocusChange::Resign => None,
+            FocusChange::Resign => self.last_focus,
             FocusChange::Focus(id) => Some(id),
             FocusChange::Next => self.widget_from_focus_chain(true),
             FocusChange::Previous => self.widget_from_focus_chain(false),

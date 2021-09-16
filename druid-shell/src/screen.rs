@@ -14,7 +14,6 @@
 
 //! Module to get information about monitors
 
-use crate::backend;
 use crate::kurbo::Rect;
 use std::fmt;
 use std::fmt::Display;
@@ -84,7 +83,7 @@ impl Screen {
     ///
     /// [`monitors`]: struct.Monitor.html
     pub fn get_monitors() -> Vec<Monitor> {
-        backend::screen::get_monitors()
+        vec![]
     }
 
     /// Returns the bounding rectangle of the total virtual screen space in pixels.

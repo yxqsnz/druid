@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "druid",
     "druid-shell",
@@ -8,8 +9,4 @@ members = [
     "druid/examples/hello_web",
     "druid/examples/value_formatting",
 ]
-default-members = [
-    "druid",
-    "druid-shell",
-    "druid-derive",
-]
+default-members = ["druid", "druid-shell", "druid-derive"]

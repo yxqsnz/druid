@@ -80,7 +80,7 @@ pub enum Event {
     /// widgets. It *is* propagated through the RootWidget and handled
     /// in the WindowPod, but after that it might be considered better
     /// to just handle it in `layout`.
-    WindowSize(Size),
+    WindowSize(Size, Option<f64>),
     /// Called when a mouse button is pressed.
     MouseDown(MouseEvent),
     /// Called when a mouse button is released.
@@ -431,7 +431,7 @@ impl Event {
             Event::WindowConnected
             | Event::WindowCloseRequested
             | Event::WindowDisconnected
-            | Event::WindowSize(_)
+            | Event::WindowSize(_, _)
             | Event::Timer(_)
             | Event::AnimFrame(_)
             | Event::Command(_)

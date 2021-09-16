@@ -14,6 +14,8 @@
 
 //! Window building and app lifecycle.
 
+use std::sync::Arc;
+
 use crate::ext_event::{ExtEventHost, ExtEventSink};
 use crate::kurbo::{Point, Size};
 use crate::menu::MenuManager;
@@ -21,9 +23,14 @@ use crate::shell::{Application, Error as PlatformError, WindowBuilder, WindowHan
 use crate::widget::LabelText;
 use crate::win_handler::{AppHandler, AppState};
 use crate::window::WindowId;
-use crate::{AppDelegate, Data, Env, LocalizedString, Menu, Widget};
+use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, MouseEvent, Widget};
 
-use druid_shell::WindowState;
+use druid_shell::kurbo::Vec2;
+use druid_shell::{
+    winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, WindowState,
+    WinitEvent,
+};
+use winit::event_loop::{ControlFlow, EventLoop};
 
 /// A function that modifies the initial environment.
 type EnvSetupFn<T> = dyn FnOnce(&mut Env, &T);
@@ -237,7 +244,10 @@ impl<T: Data> AppLauncher<T> {
     /// Returns an error if a window cannot be instantiated. This is usually
     /// a fatal error.
     pub fn launch(mut self, data: T) -> Result<(), PlatformError> {
-        let app = Application::new()?;
+        let event_loop = EventLoop::with_user_event();
+        let event_proxy = Arc::new(event_loop.create_proxy());
+
+        let app = Application::new(event_proxy)?;
 
         let mut env = self
             .l10n_resources
@@ -257,13 +267,187 @@ impl<T: Data> AppLauncher<T> {
         );
 
         for desc in self.windows {
-            let window = desc.build_native(&mut state)?;
+            let window = desc.build_native(&mut state, &event_loop)?;
             window.show();
         }
 
-        let handler = AppHandler::new(state);
-        app.run(Some(Box::new(handler)));
-        Ok(())
+        event_loop.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Wait;
+            match event {
+                winit::event::Event::NewEvents(cause) => {}
+                winit::event::Event::MainEventsCleared => {}
+                winit::event::Event::RedrawEventsCleared => {}
+                winit::event::Event::UserEvent(event) => match event {
+                    WinitEvent::Idle(token) => {
+                        state.idle(token);
+                    }
+                },
+                winit::event::Event::WindowEvent { window_id, event } => match event {
+                    winit::event::WindowEvent::ScaleFactorChanged {
+                        scale_factor,
+                        new_inner_size,
+                    } => {
+                        let size =
+                            Size::new(new_inner_size.width.into(), new_inner_size.height.into());
+                        let event = Event::WindowSize(size, Some(scale_factor));
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::Resized(size) => {
+                        let size = Size::new(size.width.into(), size.height.into());
+                        let event = Event::WindowSize(size, None);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::ModifiersChanged(winit_mods) => {
+                        let mut mods = Modifiers::empty();
+                        if winit_mods.shift() {
+                            mods.set(Modifiers::SHIFT, true);
+                        }
+                        if winit_mods.ctrl() {
+                            mods.set(Modifiers::CONTROL, true);
+                        }
+                        if winit_mods.alt() {
+                            mods.set(Modifiers::ALT, true);
+                        }
+                        if winit_mods.logo() {
+                            mods.set(Modifiers::META, true);
+                        }
+
+                        state.set_mods(&window_id, mods);
+                    }
+                    winit::event::WindowEvent::MouseWheel { delta, .. } => {
+                        let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                        let mods = state.get_mods(&window_id).unwrap_or(Modifiers::empty());
+                        let buttons = state
+                            .get_mouse_buttons(&window_id)
+                            .unwrap_or(MouseButtons::new());
+                        let delta = match delta {
+                            winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                                Vec2::new(x as f64 * 32.0, -y as f64 * 32.0)
+                            }
+                            winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                                Vec2::new(pos.x / scale, -pos.y / scale)
+                            }
+                        };
+                        let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
+                        let mouse_event = MouseEvent {
+                            pos,
+                            window_pos: pos,
+                            buttons,
+                            mods,
+                            count: 0,
+                            focus: false,
+                            button: MouseButton::None,
+                            wheel_delta: delta,
+                        };
+                        let event = Event::Wheel(mouse_event);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::CursorMoved {
+                        device_id,
+                        position,
+                        modifiers,
+                    } => {
+                        let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let pos = Point::new(position.x / scale, position.y / scale);
+                        let buttons = state
+                            .get_mouse_buttons(&window_id)
+                            .unwrap_or(MouseButtons::new());
+                        let mouse_event = MouseEvent {
+                            pos,
+                            window_pos: pos,
+                            buttons,
+                            mods,
+                            count: 0,
+                            focus: false,
+                            button: MouseButton::None,
+                            wheel_delta: Vec2::ZERO,
+                        };
+                        let event = Event::MouseMove(mouse_event);
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::MouseInput {
+                        device_id,
+                        state: mouse_state,
+                        button,
+                        modifiers,
+                    } => {
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
+                        let mut buttons = state
+                            .get_mouse_buttons(&window_id)
+                            .unwrap_or(MouseButtons::new());
+                        let button = match button {
+                            winit::event::MouseButton::Left => MouseButton::Left,
+                            winit::event::MouseButton::Right => MouseButton::Right,
+                            winit::event::MouseButton::Middle => MouseButton::Middle,
+                            winit::event::MouseButton::Other(_) => MouseButton::None,
+                        };
+                        match mouse_state {
+                            winit::event::ElementState::Pressed => buttons.insert(button),
+                            winit::event::ElementState::Released => buttons.remove(button),
+                        }
+                        let mouse_event = MouseEvent {
+                            pos,
+                            window_pos: pos,
+                            buttons,
+                            mods,
+                            count: 0,
+                            focus: false,
+                            button,
+                            wheel_delta: Vec2::ZERO,
+                        };
+                        let event = match mouse_state {
+                            winit::event::ElementState::Pressed => Event::MouseDown(mouse_event),
+                            winit::event::ElementState::Released => Event::MouseUp(mouse_event),
+                        };
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    winit::event::WindowEvent::KeyboardInput {
+                        input,
+                        device_id,
+                        is_synthetic,
+                    } => {
+                        // println!("keyboard input {:?}", input);
+                        let mods = if let Some(mods) = state.get_mods(&window_id) {
+                            mods
+                        } else {
+                            Modifiers::empty()
+                        };
+                        let key_state = match input.state {
+                            winit::event::ElementState::Pressed => KeyState::Down,
+                            winit::event::ElementState::Released => KeyState::Up,
+                        };
+                        let mut key_event = KeyEvent::default();
+                        key_event.state = key_state;
+                        key_event.mods = mods;
+                        key_event.key = winit_key(&input, mods.shift());
+                        let event = match input.state {
+                            winit::event::ElementState::Pressed => Event::KeyDown(key_event),
+                            winit::event::ElementState::Released => Event::KeyUp(key_event),
+                        };
+                        state.do_winit_window_event(event, &window_id);
+                    }
+                    _ => (),
+                },
+                winit::event::Event::RedrawRequested(window_id) => {
+                    state.paint_winit_window(&window_id);
+                }
+                _ => (),
+            }
+        });
+
+        // let handler = AppHandler::new(state);
+        // app.run(Some(Box::new(handler)));
+        // Ok(())
     }
 }
 
@@ -380,24 +564,30 @@ impl WindowConfig {
     }
 
     /// Apply this window configuration to the passed in WindowBuilder
-    pub fn apply_to_builder(&self, builder: &mut WindowBuilder) {
-        if let Some(resizable) = self.resizable {
-            builder.resizable(resizable);
-        }
+    pub fn apply_to_builder(&self, builder: WindowBuilder) -> WindowBuilder {
+        let mut builder = if let Some(resizable) = self.resizable {
+            builder.resizable(resizable)
+        } else {
+            builder
+        };
 
         if let Some(show_titlebar) = self.show_titlebar {
             builder.show_titlebar(show_titlebar);
         }
 
-        if let Some(size) = self.size {
-            builder.set_size(size);
+        let builder = if let Some(size) = self.size {
+            builder.set_size(size)
         } else if let WindowSizePolicy::Content = self.size_policy {
-            builder.set_size(Size::new(0., 0.));
-        }
+            builder.set_size(Size::new(0., 0.))
+        } else {
+            builder
+        };
 
-        if let Some(position) = self.position {
-            builder.set_position(position);
-        }
+        let mut builder = if let Some(position) = self.position {
+            builder.set_position(position)
+        } else {
+            builder
+        };
 
         if let Some(transparent) = self.transparent {
             builder.set_transparent(transparent);
@@ -407,12 +597,16 @@ impl WindowConfig {
             builder.set_level(level)
         }
 
-        if let Some(state) = self.state {
-            builder.set_window_state(state);
-        }
+        let builder = if let Some(state) = self.state {
+            builder.set_window_state(state)
+        } else {
+            builder
+        };
 
         if let Some(min_size) = self.min_size {
-            builder.set_min_size(min_size);
+            builder.set_min_size(min_size)
+        } else {
+            builder
         }
     }
 
@@ -592,7 +786,8 @@ impl<T: Data> WindowDesc<T> {
     pub(crate) fn build_native(
         self,
         state: &mut AppState<T>,
+        event_loop: &EventLoop<WinitEvent>,
     ) -> Result<WindowHandle, PlatformError> {
-        state.build_native_window(self.id, self.pending, self.config)
+        state.build_native_window(self.id, self.pending, self.config, event_loop)
     }
 }

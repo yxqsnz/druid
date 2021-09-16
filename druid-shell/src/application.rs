@@ -17,11 +17,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use crate::backend::application as backend;
+use copypasta::ClipboardContext;
+use winit::event_loop::EventLoopProxy;
+
 use crate::clipboard::Clipboard;
 use crate::error::Error;
 use crate::util;
+use crate::window::WinitEvent;
 
 /// A top-level handler that is not associated with any window.
 ///
@@ -47,13 +51,14 @@ pub trait AppHandler {
 /// This can be thought of as a reference and it can be safely cloned.
 #[derive(Clone)]
 pub struct Application {
-    pub(crate) backend_app: backend::Application,
-    state: Rc<RefCell<State>>,
+    pub(crate) state: Rc<RefCell<State>>,
+    pub(crate) clipboard: Clipboard,
 }
 
 /// Platform-independent `Application` state.
-struct State {
+pub(crate) struct State {
     running: bool,
+    pub(crate) event_proxy: Arc<EventLoopProxy<WinitEvent>>,
 }
 
 /// Used to ensure only one Application instance is ever created.
@@ -74,14 +79,19 @@ impl Application {
     /// This may change in the future. See [druid#771] for discussion.
     ///
     /// [druid#771]: https://github.com/linebender/druid/issues/771
-    pub fn new() -> Result<Application, Error> {
+    pub fn new(event_proxy: Arc<EventLoopProxy<WinitEvent>>) -> Result<Application, Error> {
         APPLICATION_CREATED
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| Error::ApplicationAlreadyExists)?;
         util::claim_main_thread();
-        let backend_app = backend::Application::new()?;
-        let state = Rc::new(RefCell::new(State { running: false }));
-        let app = Application { backend_app, state };
+        let state = Rc::new(RefCell::new(State {
+            running: false,
+            event_proxy,
+        }));
+        let clipboard = Clipboard(Rc::new(RefCell::new(
+            ClipboardContext::new().map_err(|e| Error::WindowDropped)?,
+        )));
+        let app = Application { state, clipboard };
         GLOBAL_APP.with(|global_app| {
             *global_app.borrow_mut() = Some(app.clone());
         });
@@ -147,7 +157,7 @@ impl Application {
         }
 
         // Run the platform application
-        self.backend_app.run(handler);
+        // self.backend_app.run(handler);
 
         // This application is no longer active, so clear the global reference
         GLOBAL_APP.with(|global_app| {
@@ -167,12 +177,12 @@ impl Application {
     ///
     /// [`run`]: #method.run
     pub fn quit(&self) {
-        self.backend_app.quit()
+        // self.backend_app.quit()
     }
 
     /// Returns a handle to the system clipboard.
     pub fn clipboard(&self) -> Clipboard {
-        self.backend_app.clipboard().into()
+        self.clipboard.clone()
     }
 
     /// Returns the current locale string.
@@ -181,6 +191,7 @@ impl Application {
     ///
     /// [Unicode language identifier]: https://unicode.org/reports/tr35/#Unicode_language_identifier
     pub fn get_locale() -> String {
-        backend::Application::get_locale()
+        "".to_string()
+        // backend::Application::get_locale()
     }
 }

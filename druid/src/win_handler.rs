@@ -15,7 +15,7 @@
 //! The implementation of the WinHandler trait (druid-shell integration).
 
 use std::any::{Any, TypeId};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
@@ -38,7 +38,9 @@ use crate::{
 
 use crate::app::{PendingWindow, WindowConfig};
 use crate::command::sys as sys_cmd;
-use druid_shell::WindowBuilder;
+use druid_shell::kurbo::Point;
+use druid_shell::{Modifiers, MouseButtons, WindowBuilder, WinitEvent};
+use winit::event_loop::{EventLoop, EventLoopProxy};
 
 pub(crate) const RUN_COMMANDS_TOKEN: IdleToken = IdleToken::new(1);
 
@@ -71,7 +73,7 @@ pub(crate) struct AppHandler<T> {
 /// State shared by all windows in the UI.
 #[derive(Clone)]
 pub(crate) struct AppState<T> {
-    inner: Rc<RefCell<InnerAppState<T>>>,
+    pub(crate) inner: Rc<RefCell<InnerAppState<T>>>,
 }
 
 /// The information for forwarding druid-shell's file dialog reply to the right place.
@@ -84,13 +86,14 @@ struct DialogInfo {
     cancel_cmd: Selector<()>,
 }
 
-struct InnerAppState<T> {
+pub(crate) struct InnerAppState<T> {
     app: Application,
     delegate: Option<Box<dyn AppDelegate<T>>>,
     command_queue: CommandQueue,
     file_dialogs: HashMap<FileDialogToken, DialogInfo>,
     ext_event_host: ExtEventHost,
-    windows: Windows<T>,
+    pub(crate) windows: Windows<T>,
+    pub(crate) winit_windows: HashMap<winit::window::WindowId, WindowId>,
     /// the application-level menu, only set on macos and only if there
     /// are no open windows.
     root_menu: Option<MenuManager<T>>,
@@ -104,7 +107,7 @@ struct InnerAppState<T> {
 }
 
 /// All active windows.
-struct Windows<T> {
+pub(crate) struct Windows<T> {
     pending: HashMap<WindowId, PendingWindow<T>>,
     windows: HashMap<WindowId, Window<T>>,
 }
@@ -135,7 +138,7 @@ impl<T> Windows<T> {
         self.windows.get(&id)
     }
 
-    fn get_mut(&mut self, id: WindowId) -> Option<&mut Window<T>> {
+    pub(crate) fn get_mut(&mut self, id: WindowId) -> Option<&mut Window<T>> {
         self.windows.get_mut(&id)
     }
 
@@ -163,6 +166,7 @@ impl<T> AppState<T> {
             delegate,
             command_queue: VecDeque::new(),
             file_dialogs: HashMap::new(),
+            winit_windows: HashMap::new(),
             root_menu: None,
             menu_window: None,
             ext_event_host,
@@ -240,9 +244,9 @@ impl<T: Data> InnerAppState<T> {
             .unwrap_or(Handled::No)
     }
 
-    fn connect(&mut self, id: WindowId, handle: WindowHandle) {
+    fn connect(&mut self, id: WindowId, handle: &WindowHandle) {
         self.windows
-            .connect(id, handle, self.ext_event_host.make_sink());
+            .connect(id, handle.clone(), self.ext_event_host.make_sink());
 
         // If the external event host has no handle, it cannot wake us
         // when an event arrives.
@@ -335,15 +339,9 @@ impl<T: Data> InnerAppState<T> {
         self.do_update();
     }
 
-    fn paint(&mut self, window_id: WindowId, piet: &mut Piet, invalid: &Region) {
+    fn paint(&mut self, window_id: WindowId) {
         if let Some(win) = self.windows.get_mut(window_id) {
-            win.do_paint(
-                piet,
-                invalid,
-                &mut self.command_queue,
-                &self.data,
-                &self.env,
-            );
+            win.do_paint(&mut self.command_queue, &self.data, &self.env);
         }
     }
 
@@ -463,29 +461,29 @@ impl<T: Data> InnerAppState<T> {
                 // we need to call this outside of the borrow, so we create a
                 // closure that takes the correct window handle. yes, it feels
                 // weird.
-                let handle = window.handle.clone();
-                let f = Box::new(move || handle.set_focused_text_field(focus_change));
-                self.ime_focus_change = Some(f);
+                // let handle = window.handle.clone();
+                // let f = Box::new(move || handle.set_focused_text_field(focus_change));
+                // self.ime_focus_change = Some(f);
             }
 
             #[cfg(not(target_os = "macos"))]
             window.update_menu(&self.data, &self.env);
         }
 
-        #[cfg(target_os = "macos")]
-        {
-            use druid_shell::platform::mac::ApplicationExt as _;
+        // #[cfg(target_os = "macos")]
+        // {
+        //     use druid_shell::platform::mac::ApplicationExt as _;
 
-            let windows = &mut self.windows;
-            let window = self.menu_window.and_then(|w| windows.get_mut(w));
-            if let Some(window) = window {
-                window.update_menu(&self.data, &self.env);
-            } else if let Some(root_menu) = &mut self.root_menu {
-                if let Some(new_menu) = root_menu.update(None, &self.data, &self.env) {
-                    self.app.set_menu(new_menu);
-                }
-            }
-        }
+        //     let windows = &mut self.windows;
+        //     let window = self.menu_window.and_then(|w| windows.get_mut(w));
+        //     if let Some(window) = window {
+        //         window.update_menu(&self.data, &self.env);
+        //     } else if let Some(root_menu) = &mut self.root_menu {
+        //         if let Some(new_menu) = root_menu.update(None, &self.data, &self.env) {
+        //             self.app.set_menu(new_menu);
+        //         }
+        //     }
+        // }
         self.invalidate_and_finalize();
     }
 
@@ -561,7 +559,7 @@ impl<T: Data> AppState<T> {
         self.inner.borrow_mut().windows.add(id, window);
     }
 
-    fn connect_window(&mut self, window_id: WindowId, handle: WindowHandle) {
+    fn connect_window(&mut self, window_id: WindowId, handle: &WindowHandle) {
         self.inner.borrow_mut().connect(window_id, handle)
     }
 
@@ -571,6 +569,105 @@ impl<T: Data> AppState<T> {
 
     fn window_got_focus(&mut self, window_id: WindowId) {
         self.inner.borrow_mut().window_got_focus(window_id)
+    }
+
+    pub(crate) fn get_mouse_buttons(
+        &self,
+        window_id: &winit::window::WindowId,
+    ) -> Option<MouseButtons> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow_mut().windows.get_mut(window_id) {
+                return window.last_mouse_buttons.clone();
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_mouse_pos(&self, window_id: &winit::window::WindowId) -> Option<Point> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow_mut().windows.get_mut(window_id) {
+                return window.last_mouse_pos.clone();
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_scale(&self, window_id: &winit::window::WindowId) -> Option<f64> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow().windows.get(window_id) {
+                return Some(window.scale);
+            }
+        }
+        None
+    }
+
+    pub(crate) fn set_mods(&self, window_id: &winit::window::WindowId, mods: Modifiers) {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow_mut().windows.get_mut(window_id) {
+                window.mods = mods;
+            }
+        }
+    }
+
+    pub(crate) fn get_mods(&self, window_id: &winit::window::WindowId) -> Option<Modifiers> {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            if let Some(window) = self.inner.borrow().windows.get(window_id) {
+                return Some(window.mods.clone());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn do_winit_window_event(
+        &mut self,
+        event: Event,
+        window_id: &winit::window::WindowId,
+    ) {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            self.do_window_event(event, window_id);
+        }
     }
 
     /// Send an event to the widget hierarchy.
@@ -594,11 +691,24 @@ impl<T: Data> AppState<T> {
         self.inner.borrow_mut().prepare_paint(window_id);
     }
 
-    fn paint_window(&mut self, window_id: WindowId, piet: &mut Piet, invalid: &Region) {
-        self.inner.borrow_mut().paint(window_id, piet, invalid);
+    pub(crate) fn paint_winit_window(&mut self, window_id: &winit::window::WindowId) {
+        let window_id = {
+            self.inner
+                .borrow()
+                .winit_windows
+                .get(window_id)
+                .map(|w| w.clone())
+        };
+        if let Some(window_id) = window_id {
+            self.paint_window(window_id);
+        }
     }
 
-    fn idle(&mut self, token: IdleToken) {
+    fn paint_window(&mut self, window_id: WindowId) {
+        self.inner.borrow_mut().paint(window_id);
+    }
+
+    pub(crate) fn idle(&mut self, token: IdleToken) {
         match token {
             RUN_COMMANDS_TOKEN => {
                 self.process_commands();
@@ -698,54 +808,54 @@ impl<T: Data> AppState<T> {
     }
 
     fn show_open_panel(&mut self, cmd: Command, window_id: WindowId) {
-        let options = cmd.get_unchecked(sys_cmd::SHOW_OPEN_PANEL).to_owned();
-        let handle = self
-            .inner
-            .borrow_mut()
-            .windows
-            .get_mut(window_id)
-            .map(|w| w.handle.clone());
+        // let options = cmd.get_unchecked(sys_cmd::SHOW_OPEN_PANEL).to_owned();
+        // let handle = self
+        //     .inner
+        //     .borrow_mut()
+        //     .windows
+        //     .get_mut(window_id)
+        //     .map(|w| &w.handle);
 
-        let accept_cmd = options.accept_cmd.unwrap_or(crate::commands::OPEN_FILE);
-        let cancel_cmd = options
-            .cancel_cmd
-            .unwrap_or(crate::commands::OPEN_PANEL_CANCELLED);
-        let token = handle.and_then(|mut handle| handle.open_file(options.opt));
-        if let Some(token) = token {
-            self.inner.borrow_mut().file_dialogs.insert(
-                token,
-                DialogInfo {
-                    id: window_id,
-                    accept_cmd,
-                    cancel_cmd,
-                },
-            );
-        }
+        // let accept_cmd = options.accept_cmd.unwrap_or(crate::commands::OPEN_FILE);
+        // let cancel_cmd = options
+        //     .cancel_cmd
+        //     .unwrap_or(crate::commands::OPEN_PANEL_CANCELLED);
+        // let token = handle.and_then(|mut handle| handle.open_file(options.opt));
+        // if let Some(token) = token {
+        //     self.inner.borrow_mut().file_dialogs.insert(
+        //         token,
+        //         DialogInfo {
+        //             id: window_id,
+        //             accept_cmd,
+        //             cancel_cmd,
+        //         },
+        //     );
+        // }
     }
 
     fn show_save_panel(&mut self, cmd: Command, window_id: WindowId) {
-        let options = cmd.get_unchecked(sys_cmd::SHOW_SAVE_PANEL).to_owned();
-        let handle = self
-            .inner
-            .borrow_mut()
-            .windows
-            .get_mut(window_id)
-            .map(|w| w.handle.clone());
-        let accept_cmd = options.accept_cmd.unwrap_or(crate::commands::SAVE_FILE_AS);
-        let cancel_cmd = options
-            .cancel_cmd
-            .unwrap_or(crate::commands::SAVE_PANEL_CANCELLED);
-        let token = handle.and_then(|mut handle| handle.save_as(options.opt));
-        if let Some(token) = token {
-            self.inner.borrow_mut().file_dialogs.insert(
-                token,
-                DialogInfo {
-                    id: window_id,
-                    accept_cmd,
-                    cancel_cmd,
-                },
-            );
-        }
+        // let options = cmd.get_unchecked(sys_cmd::SHOW_SAVE_PANEL).to_owned();
+        // let handle = self
+        //     .inner
+        //     .borrow_mut()
+        //     .windows
+        //     .get_mut(window_id)
+        //     .map(|w| &w.handle);
+        // let accept_cmd = options.accept_cmd.unwrap_or(crate::commands::SAVE_FILE_AS);
+        // let cancel_cmd = options
+        //     .cancel_cmd
+        //     .unwrap_or(crate::commands::SAVE_PANEL_CANCELLED);
+        // let token = handle.and_then(|mut handle| handle.save_as(options.opt));
+        // if let Some(token) = token {
+        //     self.inner.borrow_mut().file_dialogs.insert(
+        //         token,
+        //         DialogInfo {
+        //             id: window_id,
+        //             accept_cmd,
+        //             cancel_cmd,
+        //         },
+        //     );
+        // }
     }
 
     fn handle_dialog_response(&mut self, token: FileDialogToken, file_info: Option<FileInfo>) {
@@ -767,12 +877,12 @@ impl<T: Data> AppState<T> {
     }
 
     fn new_window(&mut self, cmd: Command) -> Result<(), Box<dyn std::error::Error>> {
-        let desc = cmd.get_unchecked(sys_cmd::NEW_WINDOW);
-        // The NEW_WINDOW command is private and only druid can receive it by normal means,
-        // thus unwrapping can be considered safe and deserves a panic.
-        let desc = desc.take().unwrap().downcast::<WindowDesc<T>>().unwrap();
-        let window = desc.build_native(self)?;
-        window.show();
+        // let desc = cmd.get_unchecked(sys_cmd::NEW_WINDOW);
+        // // The NEW_WINDOW command is private and only druid can receive it by normal means,
+        // // thus unwrapping can be considered safe and deserves a panic.
+        // let desc = desc.take().unwrap().downcast::<WindowDesc<T>>().unwrap();
+        // let window = desc.build_native(self)?;
+        // window.show();
         Ok(())
     }
 
@@ -841,14 +951,14 @@ impl<T: Data> AppState<T> {
 
     #[cfg(target_os = "macos")]
     fn hide_app(&self) {
-        use druid_shell::platform::mac::ApplicationExt as _;
-        self.inner.borrow().app.hide()
+        // use druid_shell::platform::mac::ApplicationExt as _;
+        // self.inner.borrow().app.hide()
     }
 
     #[cfg(target_os = "macos")]
     fn hide_others(&mut self) {
-        use druid_shell::platform::mac::ApplicationExt as _;
-        self.inner.borrow().app.hide_others();
+        // use druid_shell::platform::mac::ApplicationExt as _;
+        // self.inner.borrow().app.hide_others();
     }
 
     pub(crate) fn build_native_window(
@@ -856,16 +966,17 @@ impl<T: Data> AppState<T> {
         id: WindowId,
         mut pending: PendingWindow<T>,
         config: WindowConfig,
+        event_loop: &EventLoop<WinitEvent>,
     ) -> Result<WindowHandle, PlatformError> {
-        let mut builder = WindowBuilder::new(self.app());
-        config.apply_to_builder(&mut builder);
+        let builder = WindowBuilder::new(self.app());
+        let builder = config.apply_to_builder(builder);
 
         let data = self.data();
         let env = self.env();
 
         pending.size_policy = config.size_policy;
         pending.title.resolve(&data, &env);
-        builder.set_title(pending.title.display_text().to_string());
+        let mut builder = builder.set_title(pending.title.display_text().to_string());
 
         let platform_menu = pending
             .menu
@@ -875,11 +986,21 @@ impl<T: Data> AppState<T> {
             builder.set_menu(menu);
         }
 
-        let handler = DruidHandler::new_shared((*self).clone(), id);
-        builder.set_handler(Box::new(handler));
+        let mut handler = DruidHandler::new_shared((*self).clone(), id);
 
         self.add_window(id, pending);
-        builder.build()
+        let result = builder.build(event_loop);
+        match &result {
+            Ok(handle) => {
+                handler.connect(&handle);
+                self.inner
+                    .borrow_mut()
+                    .winit_windows
+                    .insert(handle.id(), id);
+            }
+            Err(_) => (),
+        }
+        result
     }
 }
 
@@ -891,8 +1012,7 @@ impl<T: Data> crate::shell::AppHandler for AppHandler<T> {
 
 impl<T: Data> WinHandler for DruidHandler<T> {
     fn connect(&mut self, handle: &WindowHandle) {
-        self.app_state
-            .connect_window(self.window_id, handle.clone());
+        self.app_state.connect_window(self.window_id, handle);
 
         let event = Event::WindowConnected;
         self.app_state.do_window_event(event, self.window_id);
@@ -902,12 +1022,12 @@ impl<T: Data> WinHandler for DruidHandler<T> {
         self.app_state.prepare_paint_window(self.window_id);
     }
 
-    fn paint(&mut self, piet: &mut Piet, region: &Region) {
-        self.app_state.paint_window(self.window_id, piet, region);
+    fn paint(&mut self) {
+        self.app_state.paint_window(self.window_id);
     }
 
     fn size(&mut self, size: Size) {
-        let event = Event::WindowSize(size);
+        let event = Event::WindowSize(size, None);
         self.app_state.do_window_event(event, self.window_id);
     }
 
