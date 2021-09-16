@@ -272,7 +272,7 @@ impl<T: Data> AppLauncher<T> {
         }
 
         event_loop.run(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Wait;
+            *control_flow = ControlFlow::Poll;
             match event {
                 winit::event::Event::UserEvent(event) => match event {
                     WinitEvent::Idle(token) => {
