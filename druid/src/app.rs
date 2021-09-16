@@ -274,6 +274,9 @@ impl<T: Data> AppLauncher<T> {
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
+                winit::event::Event::NewEvents(cause) => {}
+                winit::event::Event::MainEventsCleared => {}
+                winit::event::Event::RedrawEventsCleared => {}
                 winit::event::Event::UserEvent(event) => match event {
                     WinitEvent::Idle(token) => {
                         state.idle(token);
