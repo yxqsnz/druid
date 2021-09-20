@@ -37,6 +37,7 @@ use winit::window::CursorIcon;
 
 pub enum WinitEvent {
     Idle(IdleToken),
+    Timer(winit::window::WindowId, TimerToken, std::time::Duration),
 }
 
 /// A token that uniquely identifies a running timer.
@@ -399,7 +400,10 @@ impl WindowHandle {
     /// like blinking a cursor or triggering tooltips, not for anything
     /// requiring precision.
     pub fn request_timer(&self, deadline: Duration) -> TimerToken {
-        TimerToken(0)
+        let token = TimerToken::next();
+        self.1
+            .send_event(WinitEvent::Timer(self.id(), token, deadline));
+        token
     }
 
     /// Set the cursor icon.

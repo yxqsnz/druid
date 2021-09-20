@@ -14,6 +14,7 @@
 
 //! Window building and app lifecycle.
 
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use crate::ext_event::{ExtEventHost, ExtEventSink};
@@ -27,8 +28,8 @@ use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, MouseEvent, Wi
 
 use druid_shell::kurbo::Vec2;
 use druid_shell::{
-    winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, WindowState,
-    WinitEvent,
+    winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, TimerToken,
+    WindowState, WinitEvent,
 };
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -271,15 +272,44 @@ impl<T: Data> AppLauncher<T> {
             window.show();
         }
 
+        let mut timer_tokens = BTreeMap::new();
+
         event_loop.run(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Wait;
             match event {
-                winit::event::Event::NewEvents(cause) => {}
+                winit::event::Event::NewEvents(cause) => match cause {
+                    winit::event::StartCause::Init => {
+                        *control_flow = ControlFlow::Wait;
+                    }
+                    winit::event::StartCause::ResumeTimeReached {
+                        start,
+                        requested_resume,
+                    } => {
+                        if let Some((window_id, token)) = timer_tokens.remove(&requested_resume) {
+                            state.do_winit_window_event(Event::Timer(token), &window_id);
+                        }
+                        if let Some(instant) = timer_tokens.keys().next() {
+                            *control_flow = ControlFlow::WaitUntil(*instant);
+                        } else {
+                            *control_flow = ControlFlow::Wait;
+                        }
+                    }
+                    winit::event::StartCause::WaitCancelled {
+                        start,
+                        requested_resume,
+                    } => {}
+                    _ => (),
+                },
                 winit::event::Event::MainEventsCleared => {}
                 winit::event::Event::RedrawEventsCleared => {}
                 winit::event::Event::UserEvent(event) => match event {
                     WinitEvent::Idle(token) => {
                         state.idle(token);
+                    }
+                    WinitEvent::Timer(window_id, token, deadline) => {
+                        let instant = std::time::Instant::now() + deadline;
+                        timer_tokens.insert(instant, (window_id, token));
+                        let instant = timer_tokens.keys().next().unwrap();
+                        *control_flow = ControlFlow::WaitUntil(*instant);
                     }
                 },
                 winit::event::Event::WindowEvent { window_id, event } => match event {
