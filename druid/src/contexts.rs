@@ -563,6 +563,16 @@ impl EventCtx<'_, '_> {
         }
     }
 
+    /// Configure the current window
+    pub fn configure_window(&mut self, window_config: WindowConfig) {
+        trace!("configire_window");
+        self.submit_command(
+            commands::CONFIGURE_WINDOW
+                .with(window_config)
+                .to(Target::Window(self.state.window_id)),
+        );
+    }
+
     /// Show the context menu in the window containing the current widget.
     /// `T` must be the application's root `Data` type (the type provided to [`AppLauncher::launch`]).
     ///

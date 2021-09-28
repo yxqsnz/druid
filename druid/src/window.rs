@@ -390,7 +390,7 @@ impl<T: Data> Window<T> {
     }
 
     pub(crate) fn update(&mut self, queue: &mut CommandQueue, data: &T, env: &Env) {
-        self.update_title(data, env);
+        //  self.update_title(data, env);
 
         let mut widget_state = WidgetState::new(self.root.id(), Some(self.size));
         let mut state = ContextState::new::<T>(

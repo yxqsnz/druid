@@ -68,6 +68,7 @@ pub struct WindowConfig {
     pub(crate) resizable: Option<bool>,
     pub(crate) transparent: Option<bool>,
     pub(crate) show_titlebar: Option<bool>,
+    pub(crate) set_title: Option<String>,
     pub(crate) level: Option<WindowLevel>,
     pub(crate) state: Option<WindowState>,
 }
@@ -490,6 +491,7 @@ impl Default for WindowConfig {
             position: None,
             resizable: None,
             show_titlebar: None,
+            set_title: None,
             transparent: None,
             level: None,
             state: None,
@@ -559,6 +561,12 @@ impl WindowConfig {
     /// Set whether the window should have a titlebar and decorations.
     pub fn show_titlebar(mut self, show_titlebar: bool) -> Self {
         self.show_titlebar = Some(show_titlebar);
+        self
+    }
+
+    /// Set the title
+    pub fn set_title(mut self, title: String) -> Self {
+        self.set_title = Some(title);
         self
     }
 
@@ -648,6 +656,10 @@ impl WindowConfig {
 
         if let Some(show_titlebar) = self.show_titlebar {
             win_handle.show_titlebar(show_titlebar);
+        }
+
+        if let Some(title) = &self.set_title {
+            win_handle.set_title(title);
         }
 
         if let Some(size) = self.size {
