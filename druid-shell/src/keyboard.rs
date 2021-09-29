@@ -297,7 +297,7 @@ pub fn winit_keycode(input: &winit::event::VirtualKeyCode) -> Code {
         winit::event::VirtualKeyCode::Up => Code::ArrowUp,
         winit::event::VirtualKeyCode::Right => Code::ArrowRight,
         winit::event::VirtualKeyCode::Down => Code::ArrowDown,
-        winit::event::VirtualKeyCode::Back => Code::BrowserBack,
+        winit::event::VirtualKeyCode::Back => Code::Backspace,
         winit::event::VirtualKeyCode::Return => Code::Enter,
         winit::event::VirtualKeyCode::Space => Code::Space,
         winit::event::VirtualKeyCode::Compose => Code::Unidentified,
