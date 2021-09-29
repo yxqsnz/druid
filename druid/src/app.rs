@@ -28,8 +28,8 @@ use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, MouseEvent, Wi
 
 use druid_shell::kurbo::Vec2;
 use druid_shell::{
-    winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, TimerToken,
-    WindowState, WinitEvent,
+    winit_key, winit_keycode, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons,
+    TimerToken, WindowState, WinitEvent,
 };
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -461,6 +461,12 @@ impl<T: Data> AppLauncher<T> {
                         key_event.state = key_state;
                         key_event.mods = mods;
                         key_event.key = winit_key(&input, mods.shift());
+                        key_event.code = winit_keycode(
+                            input
+                                .virtual_keycode
+                                .as_ref()
+                                .unwrap_or(&winit::event::VirtualKeyCode::Sysrq),
+                        );
                         let event = match input.state {
                             winit::event::ElementState::Pressed => Event::KeyDown(key_event),
                             winit::event::ElementState::Released => Event::KeyUp(key_event),
