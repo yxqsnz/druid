@@ -254,7 +254,7 @@ impl WidgetId {
         WidgetId(unsafe { std::num::NonZeroU64::new_unchecked(id) })
     }
 
-    pub(crate) fn to_raw(self) -> u64 {
+    pub fn to_raw(self) -> u64 {
         self.0.into()
     }
 }
