@@ -36,7 +36,8 @@ pub fn main() {
         .resizable(true)
         .title("Transparent background");
 
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(HelloState { name: "".into() })
         .expect("launch failed");

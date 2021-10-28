@@ -49,7 +49,8 @@ pub fn main() {
         LocalizedString::new("scroll-colors-demo-window-title").with_placeholder("Rainbows!"),
     );
     let data = 0_u32;
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .launch(data)
         .expect("launch failed");

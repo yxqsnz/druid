@@ -58,7 +58,8 @@ pub fn main() {
     };
 
     // start the application
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .launch(initial_state)
         .expect("Failed to launch application");

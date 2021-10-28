@@ -60,7 +60,8 @@ pub fn main() -> Result<(), PlatformError> {
         mono: false,
     };
 
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .launch(data)?;
 

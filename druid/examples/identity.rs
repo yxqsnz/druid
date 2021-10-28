@@ -48,7 +48,8 @@ pub fn main() {
         counter_one: 0,
         counter_two: 0,
     };
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(data)
         .expect("launch failed");

@@ -82,7 +82,8 @@ fn build_app() -> impl Widget<u32> {
 pub fn main() {
     let window = WindowDesc::new(build_app()).title("Very flexible");
 
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(0)
         .expect("launch failed");

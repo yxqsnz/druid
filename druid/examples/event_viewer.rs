@@ -335,7 +335,8 @@ pub fn main() {
         .window_size((760.0, 680.0));
 
     //start the application
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .configure_env(|env, _| {
             env.set(theme::UI_FONT, FontDescriptor::default().with_size(12.0));

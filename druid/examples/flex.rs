@@ -343,7 +343,8 @@ pub fn main() {
         fill_major_axis: false,
     };
 
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .launch(AppState { demo_state, params })
         .expect("Failed to launch application");

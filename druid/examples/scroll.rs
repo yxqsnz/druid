@@ -27,7 +27,8 @@ use druid::{AppLauncher, Data, Insets, LocalizedString, Rect, WidgetExt, WindowD
 pub fn main() {
     let window = WindowDesc::new(build_widget())
         .title(LocalizedString::new("scroll-demo-window-title").with_placeholder("Scroll demo"));
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(0u32)
         .expect("launch failed");

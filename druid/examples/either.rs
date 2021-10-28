@@ -49,7 +49,8 @@ fn ui_builder() -> impl Widget<AppState> {
 
 pub fn main() {
     let main_window = WindowDesc::new(ui_builder()).title("Switcheroo");
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .launch(AppState::default())
         .expect("launch failed");

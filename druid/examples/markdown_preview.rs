@@ -105,7 +105,8 @@ pub fn main() {
     };
 
     // start the application
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .delegate(Delegate)
         .launch(initial_state)

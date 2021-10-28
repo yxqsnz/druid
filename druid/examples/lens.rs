@@ -29,7 +29,8 @@ pub fn main() {
         scale: 0.0,
     };
 
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .launch(data)
         .expect("launch failed");
 }

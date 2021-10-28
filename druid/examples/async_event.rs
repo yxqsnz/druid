@@ -36,7 +36,7 @@ const SET_COLOR: Selector<Color> = Selector::new("event-example.set-color");
 pub fn main() {
     let window = WindowDesc::new(make_ui()).title("External Event Demo");
 
-    let launcher = AppLauncher::with_window(window);
+    let launcher = AppLauncher::new().with_window(window);
 
     // If we want to create commands from another thread `launcher.get_external_handle()`
     // should be used. For sending commands from within widgets you can always call

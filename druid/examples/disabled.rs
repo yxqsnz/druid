@@ -121,7 +121,8 @@ pub fn main() {
     let window = WindowDesc::new(main_widget()).title(
         LocalizedString::new("disabled-demo-window-title").with_placeholder("Disabled demo"),
     );
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(AppData {
             option: true,

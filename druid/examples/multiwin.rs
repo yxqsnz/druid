@@ -39,7 +39,8 @@ pub fn main() {
     let main_window = WindowDesc::new(ui_builder()).menu(make_menu).title(
         LocalizedString::new("multiwin-demo-window-title").with_placeholder("Many windows!"),
     );
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .delegate(Delegate {
             windows: Vec::new(),
         })

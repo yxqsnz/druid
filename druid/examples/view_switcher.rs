@@ -32,7 +32,8 @@ pub fn main() {
         current_view: 0,
         current_text: "Edit me!".to_string(),
     };
-    AppLauncher::with_window(main_window)
+    AppLauncher::new()
+        .with_window(main_window)
         .log_to_console()
         .launch(data)
         .expect("launch failed");

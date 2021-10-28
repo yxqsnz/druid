@@ -258,7 +258,8 @@ pub fn main() {
         operator: 'C',
         in_num: false,
     };
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(calc_state)
         .expect("launch failed");

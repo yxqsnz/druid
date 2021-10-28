@@ -88,7 +88,8 @@ pub fn main() {
         LocalizedString::new("anim-demo-window-title")
             .with_placeholder("You spin me right round..."),
     );
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(())
         .expect("launch failed");

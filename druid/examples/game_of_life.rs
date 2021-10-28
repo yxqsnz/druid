@@ -436,7 +436,8 @@ pub fn main() {
         grid.set_alive(&x);
     }
 
-    AppLauncher::with_window(window)
+    AppLauncher::new()
+        .with_window(window)
         .log_to_console()
         .launch(AppData {
             grid,
