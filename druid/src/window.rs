@@ -260,6 +260,7 @@ impl<T: Data> Window<T> {
             Event::WindowSize(size, new_scale) => {
                 if let Some(scale) = new_scale {
                     self.scale = *scale;
+                    self.renderer.borrow_mut().set_scale(*scale);
                 }
                 self.size = *size / self.scale;
                 println!("size is {}", self.size);
