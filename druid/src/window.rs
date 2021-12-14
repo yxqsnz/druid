@@ -262,9 +262,13 @@ impl<T: Data> Window<T> {
                     self.scale = *scale;
                     self.renderer.borrow_mut().set_scale(*scale);
                 }
-                self.size = *size / self.scale;
+                let mut size = *size / self.scale;
+                size.width = size.width.max(1.0);
+                size.height = size.height.max(1.0);
+
+                self.size = size;
                 println!("size is {}", self.size);
-                self.renderer.borrow_mut().set_size(*size);
+                self.renderer.borrow_mut().set_size(size);
             }
             Event::MouseDown(e) | Event::MouseUp(e) | Event::MouseMove(e) | Event::Wheel(e) => {
                 self.last_mouse_pos = Some(e.pos);
