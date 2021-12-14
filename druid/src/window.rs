@@ -83,7 +83,10 @@ impl<T> Window<T> {
         pending: PendingWindow<T>,
         ext_handle: ExtEventSink,
     ) -> Window<T> {
-        let size = handle.get_size();
+        let mut size = handle.get_size();
+        size.width = size.width.max(1.0);
+        size.height = size.height.max(1.0);
+
         let scale = handle.get_scale();
         let mut renderer = WgpuRenderer::new(&handle).unwrap();
         renderer.set_size(size);
