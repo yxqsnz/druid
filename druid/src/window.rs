@@ -265,11 +265,11 @@ impl<T: Data> Window<T> {
                     self.scale = *scale;
                     self.renderer.borrow_mut().set_scale(*scale);
                 }
-                let mut size = *size / self.scale;
+                let mut size = *size;
                 size.width = size.width.max(1.0);
                 size.height = size.height.max(1.0);
 
-                self.size = size;
+                self.size = size / self.scale;
                 println!("size is {}", self.size);
                 self.renderer.borrow_mut().set_size(size);
             }
