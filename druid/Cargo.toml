@@ -64,7 +64,7 @@ image-all = [
 ]
 
 [dependencies]
-winit = "0.25.0"
+winit = "0.26.1"
 druid-shell = { version = "0.7.0", default-features = false, path = "../druid-shell" }
 druid-derive = { version = "0.4.0", path = "../druid-derive" }
 
