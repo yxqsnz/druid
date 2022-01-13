@@ -257,6 +257,10 @@ impl WidgetId {
     pub fn to_raw(self) -> u64 {
         self.0.into()
     }
+
+    pub fn from_raw(id: u64) -> WidgetId {
+        WidgetId(NonZeroU64::new(id).unwrap())
+    }
 }
 
 impl<T> Widget<T> for Box<dyn Widget<T>> {
