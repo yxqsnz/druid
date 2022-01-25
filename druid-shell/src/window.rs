@@ -33,6 +33,8 @@ use piet_wgpu::PietText;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
+#[cfg(target_os = "macos")]
+use winit::platform::macos::WindowBuilderExtMacOS;
 use winit::window::CursorIcon;
 
 pub enum WinitEvent {
@@ -527,7 +529,22 @@ impl WindowBuilder {
     }
 
     /// Set whether the window should have a titlebar and decorations.
-    pub fn show_titlebar(&mut self, show_titlebar: bool) {}
+    #[cfg(target_os = "macos")]
+    pub fn show_titlebar(mut self, show_titlebar: bool) -> Self {
+        if !show_titlebar {
+            self.0 = self
+                .0
+                .with_title_hidden(true)
+                .with_titlebar_transparent(true)
+                .with_fullsize_content_view(true);
+        }
+        self
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn show_titlebar(mut self, show_titlebar: bool) -> Self {
+        self
+    }
 
     /// Set whether the window background should be transparent
     pub fn set_transparent(&mut self, transparent: bool) {}

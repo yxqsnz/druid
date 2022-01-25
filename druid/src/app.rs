@@ -620,9 +620,11 @@ impl WindowConfig {
             builder
         };
 
-        if let Some(show_titlebar) = self.show_titlebar {
-            builder.show_titlebar(show_titlebar);
-        }
+        let builder = if let Some(show_titlebar) = self.show_titlebar {
+            builder.show_titlebar(show_titlebar)
+        } else {
+            builder
+        };
 
         let builder = if let Some(size) = self.size {
             builder.set_size(size)
