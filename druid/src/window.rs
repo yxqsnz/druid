@@ -270,7 +270,6 @@ impl<T: Data> Window<T> {
                 size.height = size.height.max(1.0);
 
                 self.size = size / self.scale;
-                println!("size is {}", self.size);
                 self.renderer.borrow_mut().set_size(size);
             }
             Event::MouseDown(e) | Event::MouseUp(e) | Event::MouseMove(e) | Event::Wheel(e) => {
