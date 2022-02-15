@@ -273,6 +273,16 @@ impl<T, W: Widget<T>> WidgetPod<T, W> {
     /// [`Size`]: struct.Size.html
     /// [`LifeCycle::Size`]: enum.LifeCycle.html#variant.Size
     pub fn set_origin(&mut self, ctx: &mut LayoutCtx, data: &T, env: &Env, origin: Point) {
+        if self.state.origin != origin {
+            let mut child_ctx = LifeCycleCtx {
+                widget_state: &mut self.state,
+                state: ctx.state,
+            };
+            let origin_event = LifeCycle::Origin(origin);
+            self.inner
+                .lifecycle(&mut child_ctx, &origin_event, data, env);
+        }
+
         self.state.origin = origin;
         self.state.is_expecting_set_origin_call = false;
         let layout_rect = self.layout_rect();
@@ -1036,6 +1046,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
                 // This event was meant only for our parent, so don't recurse.
                 false
             }
+            LifeCycle::Origin(_) => false,
             LifeCycle::DisabledChanged(ancestors_disabled) => {
                 self.state.update_focus_chain = true;
 

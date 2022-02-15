@@ -14,7 +14,7 @@
 
 //! Events.
 
-use crate::kurbo::{Rect, Shape, Size, Vec2};
+use crate::kurbo::{Point, Rect, Shape, Size, Vec2};
 
 use druid_shell::{Clipboard, KeyEvent, TimerToken};
 
@@ -265,6 +265,8 @@ pub enum LifeCycle {
     /// [`Size`]: struct.Size.html
     /// [`Widget::layout`]: trait.Widget.html#tymethod.layout
     Size(Size),
+    /// Called when the [`Origin`] of the widget changes.
+    Origin(Point),
     /// Called when the Disabled state of the widgets is changed.
     ///
     /// To check if a widget is disabled, see [`is_disabled`].
@@ -464,6 +466,7 @@ impl LifeCycle {
             LifeCycle::Internal(internal) => internal.should_propagate_to_hidden(),
             LifeCycle::WidgetAdded | LifeCycle::DisabledChanged(_) => true,
             LifeCycle::Size(_)
+            | LifeCycle::Origin(_)
             | LifeCycle::HotChanged(_)
             | LifeCycle::FocusChanged(_)
             | LifeCycle::BuildFocusChain => false,
