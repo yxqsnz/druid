@@ -326,6 +326,13 @@ impl<T: Data> AppLauncher<T> {
                     let event = Event::WindowSize(size, Some(scale_factor));
                     state.do_winit_window_event(event, &window_id);
                 }
+                winit::event::WindowEvent::CloseRequested => {
+                    state.request_close_wint_window(&window_id);
+                    #[cfg(not(target_os = "macos"))]
+                    if state.windows_count() == 0 {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
                 winit::event::WindowEvent::Resized(size) => {
                     let size = Size::new(size.width.into(), size.height.into());
                     let event = Event::WindowSize(size, None);

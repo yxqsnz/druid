@@ -308,9 +308,7 @@ impl<T: Data> InnerAppState<T> {
     /// window handle; the platform should close the window, and then call
     /// our handlers `destroy()` method, at which point we can do our cleanup.
     fn request_close_window(&mut self, window_id: WindowId) {
-        if let Some(win) = self.windows.get_mut(window_id) {
-            win.handle.close();
-        }
+        self.windows.remove(window_id);
     }
 
     /// Requests the platform to close all windows.
@@ -908,6 +906,17 @@ impl<T: Data> AppState<T> {
 
     fn request_close_window(&mut self, id: WindowId) {
         self.inner.borrow_mut().request_close_window(id);
+    }
+
+    pub(crate) fn windows_count(&self) -> usize {
+        self.inner.borrow().windows.count()
+    }
+
+    pub(crate) fn request_close_wint_window(&mut self, id: &winit::window::WindowId) {
+        let window_id = { self.inner.borrow().winit_windows.get(id).map(|w| w.clone()) };
+        if let Some(window_id) = window_id {
+            self.inner.borrow_mut().request_close_window(window_id);
+        }
     }
 
     fn request_close_all_windows(&mut self) {
