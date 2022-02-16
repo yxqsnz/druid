@@ -187,10 +187,7 @@ impl LoggedEvent {
     }
 
     fn code(&self) -> String {
-        self.key
-            .as_ref()
-            .map(|k| k.code.to_string())
-            .unwrap_or_default()
+        "".to_string()
     }
 
     fn modifiers(&self) -> String {

@@ -21,6 +21,7 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 pub use keyboard_types::{Code, KeyState, Location};
+use winit::keyboard::{KeyCode, NativeKeyCode};
 
 /// The meaning (mapped value) of a keypress.
 pub type KbKey = keyboard_types::Key;
@@ -40,7 +41,7 @@ pub struct KeyEvent {
     /// Logical key value.
     pub key: KbKey,
     /// Physical key position.
-    pub code: Code,
+    pub code: KeyCode,
     /// Location for keys with multiple instances on common keyboards.
     pub location: Location,
     /// Flags for pressed modifier keys.
@@ -82,7 +83,7 @@ impl KeyEvent {
         let key = key.into_key();
         KeyEvent {
             key,
-            code: Code::Unidentified,
+            code: KeyCode::Unidentified(NativeKeyCode::Unidentified),
             location: Location::Standard,
             state: KeyState::Down,
             mods,
@@ -221,625 +222,316 @@ impl IntoKey for &str {
     }
 }
 
-pub fn winit_keycode(input: &winit::event::VirtualKeyCode) -> Code {
+pub fn winit_key(input: winit::keyboard::Key<'static>) -> KbKey {
     match input {
-        winit::event::VirtualKeyCode::Key1 => Code::Digit1,
-        winit::event::VirtualKeyCode::Key2 => Code::Digit2,
-        winit::event::VirtualKeyCode::Key3 => Code::Digit3,
-        winit::event::VirtualKeyCode::Key4 => Code::Digit4,
-        winit::event::VirtualKeyCode::Key5 => Code::Digit5,
-        winit::event::VirtualKeyCode::Key6 => Code::Digit6,
-        winit::event::VirtualKeyCode::Key7 => Code::Digit7,
-        winit::event::VirtualKeyCode::Key8 => Code::Digit8,
-        winit::event::VirtualKeyCode::Key9 => Code::Digit9,
-        winit::event::VirtualKeyCode::Key0 => Code::Digit0,
-        winit::event::VirtualKeyCode::A => Code::KeyA,
-        winit::event::VirtualKeyCode::B => Code::KeyB,
-        winit::event::VirtualKeyCode::C => Code::KeyC,
-        winit::event::VirtualKeyCode::D => Code::KeyD,
-        winit::event::VirtualKeyCode::E => Code::KeyE,
-        winit::event::VirtualKeyCode::F => Code::KeyF,
-        winit::event::VirtualKeyCode::G => Code::KeyG,
-        winit::event::VirtualKeyCode::H => Code::KeyH,
-        winit::event::VirtualKeyCode::I => Code::KeyI,
-        winit::event::VirtualKeyCode::J => Code::KeyJ,
-        winit::event::VirtualKeyCode::K => Code::KeyK,
-        winit::event::VirtualKeyCode::L => Code::KeyL,
-        winit::event::VirtualKeyCode::M => Code::KeyM,
-        winit::event::VirtualKeyCode::N => Code::KeyN,
-        winit::event::VirtualKeyCode::O => Code::KeyO,
-        winit::event::VirtualKeyCode::P => Code::KeyP,
-        winit::event::VirtualKeyCode::Q => Code::KeyQ,
-        winit::event::VirtualKeyCode::R => Code::KeyR,
-        winit::event::VirtualKeyCode::S => Code::KeyS,
-        winit::event::VirtualKeyCode::T => Code::KeyT,
-        winit::event::VirtualKeyCode::U => Code::KeyU,
-        winit::event::VirtualKeyCode::V => Code::KeyV,
-        winit::event::VirtualKeyCode::W => Code::KeyW,
-        winit::event::VirtualKeyCode::X => Code::KeyX,
-        winit::event::VirtualKeyCode::Y => Code::KeyY,
-        winit::event::VirtualKeyCode::Z => Code::KeyZ,
-        winit::event::VirtualKeyCode::Escape => Code::Escape,
-        winit::event::VirtualKeyCode::F1 => Code::F1,
-        winit::event::VirtualKeyCode::F2 => Code::F2,
-        winit::event::VirtualKeyCode::F3 => Code::F3,
-        winit::event::VirtualKeyCode::F4 => Code::F4,
-        winit::event::VirtualKeyCode::F5 => Code::F5,
-        winit::event::VirtualKeyCode::F6 => Code::F6,
-        winit::event::VirtualKeyCode::F7 => Code::F7,
-        winit::event::VirtualKeyCode::F8 => Code::F8,
-        winit::event::VirtualKeyCode::F9 => Code::F9,
-        winit::event::VirtualKeyCode::F10 => Code::F10,
-        winit::event::VirtualKeyCode::F11 => Code::F11,
-        winit::event::VirtualKeyCode::F12 => Code::F12,
-        winit::event::VirtualKeyCode::F13 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F14 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F15 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F16 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F17 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F18 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F19 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F20 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F21 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F22 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F23 => Code::Unidentified,
-        winit::event::VirtualKeyCode::F24 => Code::Unidentified,
-        winit::event::VirtualKeyCode::Snapshot => Code::Unidentified,
-        winit::event::VirtualKeyCode::Scroll => Code::ScrollLock,
-        winit::event::VirtualKeyCode::Pause => Code::Pause,
-        winit::event::VirtualKeyCode::Insert => Code::Insert,
-        winit::event::VirtualKeyCode::Home => Code::Home,
-        winit::event::VirtualKeyCode::Delete => Code::Delete,
-        winit::event::VirtualKeyCode::End => Code::End,
-        winit::event::VirtualKeyCode::PageDown => Code::PageDown,
-        winit::event::VirtualKeyCode::PageUp => Code::PageUp,
-        winit::event::VirtualKeyCode::Left => Code::ArrowLeft,
-        winit::event::VirtualKeyCode::Up => Code::ArrowUp,
-        winit::event::VirtualKeyCode::Right => Code::ArrowRight,
-        winit::event::VirtualKeyCode::Down => Code::ArrowDown,
-        winit::event::VirtualKeyCode::Back => Code::Backspace,
-        winit::event::VirtualKeyCode::Return => Code::Enter,
-        winit::event::VirtualKeyCode::Space => Code::Space,
-        winit::event::VirtualKeyCode::Compose => Code::Unidentified,
-        winit::event::VirtualKeyCode::Caret => Code::Unidentified,
-        winit::event::VirtualKeyCode::Numlock => Code::NumLock,
-        winit::event::VirtualKeyCode::Numpad0 => Code::Numpad0,
-        winit::event::VirtualKeyCode::Numpad1 => Code::Numpad1,
-        winit::event::VirtualKeyCode::Numpad2 => Code::Numpad2,
-        winit::event::VirtualKeyCode::Numpad3 => Code::Numpad3,
-        winit::event::VirtualKeyCode::Numpad4 => Code::Numpad4,
-        winit::event::VirtualKeyCode::Numpad5 => Code::Numpad5,
-        winit::event::VirtualKeyCode::Numpad6 => Code::Numpad6,
-        winit::event::VirtualKeyCode::Numpad7 => Code::Numpad7,
-        winit::event::VirtualKeyCode::Numpad8 => Code::Numpad8,
-        winit::event::VirtualKeyCode::Numpad9 => Code::Numpad9,
-        winit::event::VirtualKeyCode::NumpadAdd => Code::NumpadAdd,
-        winit::event::VirtualKeyCode::NumpadDivide => Code::NumpadDivide,
-        winit::event::VirtualKeyCode::NumpadDecimal => Code::NumpadDecimal,
-        winit::event::VirtualKeyCode::NumpadComma => Code::NumpadComma,
-        winit::event::VirtualKeyCode::NumpadEnter => Code::NumpadEnter,
-        winit::event::VirtualKeyCode::NumpadEquals => Code::NumpadEqual,
-        winit::event::VirtualKeyCode::NumpadMultiply => Code::NumpadMultiply,
-        winit::event::VirtualKeyCode::NumpadSubtract => Code::NumpadSubtract,
-        winit::event::VirtualKeyCode::AbntC1 => Code::Unidentified,
-        winit::event::VirtualKeyCode::AbntC2 => Code::Unidentified,
-        winit::event::VirtualKeyCode::Apostrophe => Code::Quote,
-        winit::event::VirtualKeyCode::Apps => Code::Unidentified,
-        winit::event::VirtualKeyCode::Asterisk => Code::Unidentified,
-        winit::event::VirtualKeyCode::At => Code::Unidentified,
-        winit::event::VirtualKeyCode::Ax => Code::Unidentified,
-        winit::event::VirtualKeyCode::Backslash => Code::Backslash,
-        winit::event::VirtualKeyCode::Calculator => Code::Unidentified,
-        winit::event::VirtualKeyCode::Capital => Code::Unidentified,
-        winit::event::VirtualKeyCode::Colon => Code::Unidentified,
-        winit::event::VirtualKeyCode::Comma => Code::Comma,
-        winit::event::VirtualKeyCode::Convert => Code::Convert,
-        winit::event::VirtualKeyCode::Equals => Code::Equal,
-        winit::event::VirtualKeyCode::Grave => Code::Backquote,
-        winit::event::VirtualKeyCode::Kana => Code::KanaMode,
-        winit::event::VirtualKeyCode::Kanji => Code::Katakana,
-        winit::event::VirtualKeyCode::LAlt => Code::AltLeft,
-        winit::event::VirtualKeyCode::LBracket => Code::BracketLeft,
-        winit::event::VirtualKeyCode::LControl => Code::ControlLeft,
-        winit::event::VirtualKeyCode::LShift => Code::ShiftLeft,
-        winit::event::VirtualKeyCode::LWin => Code::MetaLeft,
-        winit::event::VirtualKeyCode::Mail => Code::LaunchMail,
-        winit::event::VirtualKeyCode::MediaSelect => Code::MediaSelect,
-        winit::event::VirtualKeyCode::MediaStop => Code::MediaStop,
-        winit::event::VirtualKeyCode::Minus => Code::Minus,
-        winit::event::VirtualKeyCode::Mute => Code::AudioVolumeMute,
-        winit::event::VirtualKeyCode::MyComputer => Code::Unidentified,
-        winit::event::VirtualKeyCode::NavigateForward => Code::BrowserForward,
-        winit::event::VirtualKeyCode::NavigateBackward => Code::BrowserBack,
-        winit::event::VirtualKeyCode::NextTrack => Code::MediaTrackNext,
-        winit::event::VirtualKeyCode::NoConvert => Code::NonConvert,
-        winit::event::VirtualKeyCode::OEM102 => Code::Unidentified,
-        winit::event::VirtualKeyCode::Period => Code::Period,
-        winit::event::VirtualKeyCode::PlayPause => Code::MediaPlayPause,
-        winit::event::VirtualKeyCode::Plus => Code::Unidentified,
-        winit::event::VirtualKeyCode::Power => Code::Power,
-        winit::event::VirtualKeyCode::PrevTrack => Code::MediaTrackPrevious,
-        winit::event::VirtualKeyCode::RAlt => Code::AltRight,
-        winit::event::VirtualKeyCode::RBracket => Code::BracketRight,
-        winit::event::VirtualKeyCode::RControl => Code::ControlRight,
-        winit::event::VirtualKeyCode::RShift => Code::ShiftRight,
-        winit::event::VirtualKeyCode::RWin => Code::MetaRight,
-        winit::event::VirtualKeyCode::Semicolon => Code::Semicolon,
-        winit::event::VirtualKeyCode::Slash => Code::Slash,
-        winit::event::VirtualKeyCode::Sleep => Code::Sleep,
-        winit::event::VirtualKeyCode::Stop => Code::MediaStop,
-        winit::event::VirtualKeyCode::Sysrq => Code::Unidentified,
-        winit::event::VirtualKeyCode::Tab => Code::Tab,
-        winit::event::VirtualKeyCode::Underline => Code::Unidentified,
-        winit::event::VirtualKeyCode::Unlabeled => Code::Unidentified,
-        winit::event::VirtualKeyCode::VolumeDown => Code::AudioVolumeDown,
-        winit::event::VirtualKeyCode::VolumeUp => Code::AudioVolumeUp,
-        winit::event::VirtualKeyCode::Wake => Code::WakeUp,
-        winit::event::VirtualKeyCode::WebBack => Code::BrowserBack,
-        winit::event::VirtualKeyCode::WebFavorites => Code::BrowserFavorites,
-        winit::event::VirtualKeyCode::WebForward => Code::BrowserForward,
-        winit::event::VirtualKeyCode::WebHome => Code::BrowserHome,
-        winit::event::VirtualKeyCode::WebRefresh => Code::BrowserRefresh,
-        winit::event::VirtualKeyCode::WebSearch => Code::BrowserSearch,
-        winit::event::VirtualKeyCode::WebStop => Code::BrowserStop,
-        winit::event::VirtualKeyCode::Yen => Code::IntlYen,
-        winit::event::VirtualKeyCode::Copy => Code::Copy,
-        winit::event::VirtualKeyCode::Paste => Code::Paste,
-        winit::event::VirtualKeyCode::Cut => Code::Cut,
-    }
-}
-
-pub fn winit_key(input: &winit::event::KeyboardInput, shift: bool) -> KbKey {
-    use winit::event::VirtualKeyCode;
-    if let Some(key) = input.virtual_keycode.as_ref() {
-        match key {
-            VirtualKeyCode::Key1 => {
-                if !shift {
-                    KbKey::Character("1".to_string())
-                } else {
-                    KbKey::Character("!".to_string())
-                }
-            }
-            VirtualKeyCode::Key2 => {
-                if !shift {
-                    KbKey::Character("2".to_string())
-                } else {
-                    KbKey::Character("@".to_string())
-                }
-            }
-            VirtualKeyCode::Key3 => {
-                if !shift {
-                    KbKey::Character("3".to_string())
-                } else {
-                    KbKey::Character("#".to_string())
-                }
-            }
-            VirtualKeyCode::Key4 => {
-                if !shift {
-                    KbKey::Character("4".to_string())
-                } else {
-                    KbKey::Character("$".to_string())
-                }
-            }
-            VirtualKeyCode::Key5 => {
-                if !shift {
-                    KbKey::Character("5".to_string())
-                } else {
-                    KbKey::Character("%".to_string())
-                }
-            }
-            VirtualKeyCode::Key6 => {
-                if !shift {
-                    KbKey::Character("6".to_string())
-                } else {
-                    KbKey::Character("^".to_string())
-                }
-            }
-            VirtualKeyCode::Key7 => {
-                if !shift {
-                    KbKey::Character("7".to_string())
-                } else {
-                    KbKey::Character("&".to_string())
-                }
-            }
-            VirtualKeyCode::Key8 => {
-                if !shift {
-                    KbKey::Character("8".to_string())
-                } else {
-                    KbKey::Character("*".to_string())
-                }
-            }
-            VirtualKeyCode::Key9 => {
-                if !shift {
-                    KbKey::Character("9".to_string())
-                } else {
-                    KbKey::Character("(".to_string())
-                }
-            }
-            VirtualKeyCode::Key0 => {
-                if !shift {
-                    KbKey::Character("0".to_string())
-                } else {
-                    KbKey::Character(")".to_string())
-                }
-            }
-            VirtualKeyCode::A => {
-                if !shift {
-                    KbKey::Character("a".to_string())
-                } else {
-                    KbKey::Character("A".to_string())
-                }
-            }
-            VirtualKeyCode::B => {
-                if !shift {
-                    KbKey::Character("b".to_string())
-                } else {
-                    KbKey::Character("B".to_string())
-                }
-            }
-            VirtualKeyCode::C => {
-                if !shift {
-                    KbKey::Character("c".to_string())
-                } else {
-                    KbKey::Character("C".to_string())
-                }
-            }
-            VirtualKeyCode::D => {
-                if !shift {
-                    KbKey::Character("d".to_string())
-                } else {
-                    KbKey::Character("D".to_string())
-                }
-            }
-            VirtualKeyCode::E => {
-                if !shift {
-                    KbKey::Character("e".to_string())
-                } else {
-                    KbKey::Character("E".to_string())
-                }
-            }
-            VirtualKeyCode::F => {
-                if !shift {
-                    KbKey::Character("f".to_string())
-                } else {
-                    KbKey::Character("F".to_string())
-                }
-            }
-            VirtualKeyCode::G => {
-                if !shift {
-                    KbKey::Character("g".to_string())
-                } else {
-                    KbKey::Character("G".to_string())
-                }
-            }
-            VirtualKeyCode::H => {
-                if !shift {
-                    KbKey::Character("h".to_string())
-                } else {
-                    KbKey::Character("H".to_string())
-                }
-            }
-            VirtualKeyCode::I => {
-                if !shift {
-                    KbKey::Character("i".to_string())
-                } else {
-                    KbKey::Character("I".to_string())
-                }
-            }
-            VirtualKeyCode::J => {
-                if !shift {
-                    KbKey::Character("j".to_string())
-                } else {
-                    KbKey::Character("J".to_string())
-                }
-            }
-            VirtualKeyCode::K => {
-                if !shift {
-                    KbKey::Character("k".to_string())
-                } else {
-                    KbKey::Character("K".to_string())
-                }
-            }
-            VirtualKeyCode::L => {
-                if !shift {
-                    KbKey::Character("l".to_string())
-                } else {
-                    KbKey::Character("L".to_string())
-                }
-            }
-            VirtualKeyCode::M => {
-                if !shift {
-                    KbKey::Character("m".to_string())
-                } else {
-                    KbKey::Character("M".to_string())
-                }
-            }
-            VirtualKeyCode::N => {
-                if !shift {
-                    KbKey::Character("n".to_string())
-                } else {
-                    KbKey::Character("N".to_string())
-                }
-            }
-            VirtualKeyCode::O => {
-                if !shift {
-                    KbKey::Character("o".to_string())
-                } else {
-                    KbKey::Character("O".to_string())
-                }
-            }
-            VirtualKeyCode::P => {
-                if !shift {
-                    KbKey::Character("p".to_string())
-                } else {
-                    KbKey::Character("P".to_string())
-                }
-            }
-            VirtualKeyCode::Q => {
-                if !shift {
-                    KbKey::Character("q".to_string())
-                } else {
-                    KbKey::Character("Q".to_string())
-                }
-            }
-            VirtualKeyCode::R => {
-                if !shift {
-                    KbKey::Character("r".to_string())
-                } else {
-                    KbKey::Character("R".to_string())
-                }
-            }
-            VirtualKeyCode::S => {
-                if !shift {
-                    KbKey::Character("s".to_string())
-                } else {
-                    KbKey::Character("S".to_string())
-                }
-            }
-            VirtualKeyCode::T => {
-                if !shift {
-                    KbKey::Character("t".to_string())
-                } else {
-                    KbKey::Character("T".to_string())
-                }
-            }
-            VirtualKeyCode::U => {
-                if !shift {
-                    KbKey::Character("u".to_string())
-                } else {
-                    KbKey::Character("U".to_string())
-                }
-            }
-            VirtualKeyCode::V => {
-                if !shift {
-                    KbKey::Character("v".to_string())
-                } else {
-                    KbKey::Character("V".to_string())
-                }
-            }
-            VirtualKeyCode::W => {
-                if !shift {
-                    KbKey::Character("w".to_string())
-                } else {
-                    KbKey::Character("W".to_string())
-                }
-            }
-            VirtualKeyCode::X => {
-                if !shift {
-                    KbKey::Character("x".to_string())
-                } else {
-                    KbKey::Character("X".to_string())
-                }
-            }
-            VirtualKeyCode::Y => {
-                if !shift {
-                    KbKey::Character("y".to_string())
-                } else {
-                    KbKey::Character("Y".to_string())
-                }
-            }
-            VirtualKeyCode::Z => {
-                if !shift {
-                    KbKey::Character("z".to_string())
-                } else {
-                    KbKey::Character("Z".to_string())
-                }
-            }
-            VirtualKeyCode::Escape => KbKey::Escape,
-            VirtualKeyCode::F1 => KbKey::F1,
-            VirtualKeyCode::F2 => KbKey::F2,
-            VirtualKeyCode::F3 => KbKey::F3,
-            VirtualKeyCode::F4 => KbKey::F4,
-            VirtualKeyCode::F5 => KbKey::F5,
-            VirtualKeyCode::F6 => KbKey::F6,
-            VirtualKeyCode::F7 => KbKey::F7,
-            VirtualKeyCode::F8 => KbKey::F8,
-            VirtualKeyCode::F9 => KbKey::F9,
-            VirtualKeyCode::F10 => KbKey::F10,
-            VirtualKeyCode::F11 => KbKey::F11,
-            VirtualKeyCode::F12 => KbKey::F12,
-            VirtualKeyCode::F13 => KbKey::Unidentified,
-            VirtualKeyCode::F14 => KbKey::Unidentified,
-            VirtualKeyCode::F15 => KbKey::Unidentified,
-            VirtualKeyCode::F16 => KbKey::Unidentified,
-            VirtualKeyCode::F17 => KbKey::Unidentified,
-            VirtualKeyCode::F18 => KbKey::Unidentified,
-            VirtualKeyCode::F19 => KbKey::Unidentified,
-            VirtualKeyCode::F20 => KbKey::Unidentified,
-            VirtualKeyCode::F21 => KbKey::Unidentified,
-            VirtualKeyCode::F22 => KbKey::Unidentified,
-            VirtualKeyCode::F23 => KbKey::Unidentified,
-            VirtualKeyCode::F24 => KbKey::Unidentified,
-            VirtualKeyCode::Snapshot => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::Scroll => keyboard_types::Key::Unidentified,
-            VirtualKeyCode::Pause => keyboard_types::Key::Pause,
-            VirtualKeyCode::Insert => keyboard_types::Key::Insert,
-            VirtualKeyCode::Home => keyboard_types::Key::Home,
-            VirtualKeyCode::Delete => keyboard_types::Key::Delete,
-            VirtualKeyCode::End => keyboard_types::Key::End,
-            VirtualKeyCode::PageDown => keyboard_types::Key::PageDown,
-            VirtualKeyCode::PageUp => keyboard_types::Key::PageUp,
-            VirtualKeyCode::Left => keyboard_types::Key::ArrowLeft,
-            VirtualKeyCode::Up => keyboard_types::Key::ArrowUp,
-            VirtualKeyCode::Right => keyboard_types::Key::ArrowRight,
-            VirtualKeyCode::Down => keyboard_types::Key::ArrowDown,
-            VirtualKeyCode::Back => KbKey::Backspace,
-            VirtualKeyCode::Return => keyboard_types::Key::Enter,
-            VirtualKeyCode::Space => KbKey::Character(" ".to_string()),
-            VirtualKeyCode::Compose => KbKey::Compose,
-            VirtualKeyCode::Caret => KbKey::Unidentified,
-            VirtualKeyCode::Numlock => KbKey::NumLock,
-            VirtualKeyCode::Numpad0 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad1 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad2 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad3 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad4 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad5 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad6 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad7 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad8 => KbKey::Unidentified,
-            VirtualKeyCode::Numpad9 => KbKey::Unidentified,
-            VirtualKeyCode::NumpadAdd => KbKey::Unidentified,
-            VirtualKeyCode::NumpadDivide => KbKey::Unidentified,
-            VirtualKeyCode::NumpadDecimal => KbKey::Unidentified,
-            VirtualKeyCode::NumpadComma => KbKey::Unidentified,
-            VirtualKeyCode::NumpadEnter => KbKey::Enter,
-            VirtualKeyCode::NumpadEquals => KbKey::Unidentified,
-            VirtualKeyCode::NumpadMultiply => KbKey::Unidentified,
-            VirtualKeyCode::NumpadSubtract => KbKey::Unidentified,
-            VirtualKeyCode::AbntC1 => KbKey::Unidentified,
-            VirtualKeyCode::AbntC2 => KbKey::Unidentified,
-            VirtualKeyCode::Apostrophe => {
-                if !shift {
-                    KbKey::Character("'".to_string())
-                } else {
-                    KbKey::Character("\"".to_string())
-                }
-            }
-            VirtualKeyCode::Apps => KbKey::MediaApps,
-            VirtualKeyCode::Asterisk => KbKey::Unidentified,
-            VirtualKeyCode::At => KbKey::Unidentified,
-            VirtualKeyCode::Ax => KbKey::Unidentified,
-            VirtualKeyCode::Backslash => {
-                if !shift {
-                    KbKey::Character("\\".to_string())
-                } else {
-                    KbKey::Character("|".to_string())
-                }
-            }
-            VirtualKeyCode::Calculator => KbKey::Unidentified,
-            VirtualKeyCode::Capital => KbKey::CapsLock,
-            VirtualKeyCode::Colon => KbKey::Unidentified,
-            VirtualKeyCode::Comma => {
-                if !shift {
-                    KbKey::Character(",".to_string())
-                } else {
-                    KbKey::Character("<".to_string())
-                }
-            }
-            VirtualKeyCode::Convert => KbKey::Convert,
-            VirtualKeyCode::Equals => {
-                if !shift {
-                    KbKey::Character("=".to_string())
-                } else {
-                    KbKey::Character("+".to_string())
-                }
-            }
-            VirtualKeyCode::Grave => {
-                if !shift {
-                    KbKey::Character("`".to_string())
-                } else {
-                    KbKey::Character("~".to_string())
-                }
-            }
-            VirtualKeyCode::Kana => KbKey::KanaMode,
-            VirtualKeyCode::Kanji => KbKey::KanjiMode,
-            VirtualKeyCode::LAlt => KbKey::Alt,
-            VirtualKeyCode::LBracket => {
-                if !shift {
-                    KbKey::Character("[".to_string())
-                } else {
-                    KbKey::Character("{".to_string())
-                }
-            }
-            VirtualKeyCode::LControl => KbKey::Control,
-            VirtualKeyCode::LShift => KbKey::Shift,
-            VirtualKeyCode::LWin => KbKey::Meta,
-            VirtualKeyCode::Mail => KbKey::MailSend,
-            VirtualKeyCode::MediaSelect => KbKey::MediaApps,
-            VirtualKeyCode::MediaStop => KbKey::MediaStop,
-            VirtualKeyCode::Minus => {
-                if !shift {
-                    KbKey::Character("-".to_string())
-                } else {
-                    KbKey::Character("_".to_string())
-                }
-            }
-            VirtualKeyCode::Mute => KbKey::AudioVolumeMute,
-            VirtualKeyCode::MyComputer => KbKey::Unidentified,
-            VirtualKeyCode::NavigateForward => KbKey::BrowserForward,
-            VirtualKeyCode::NavigateBackward => KbKey::BrowserBack,
-            VirtualKeyCode::NextTrack => KbKey::MediaTrackNext,
-            VirtualKeyCode::NoConvert => KbKey::NonConvert,
-            VirtualKeyCode::OEM102 => KbKey::Unidentified,
-            VirtualKeyCode::Period => {
-                if !shift {
-                    KbKey::Character(".".to_string())
-                } else {
-                    KbKey::Character(">".to_string())
-                }
-            }
-            VirtualKeyCode::PlayPause => KbKey::MediaPlayPause,
-            VirtualKeyCode::Plus => KbKey::Unidentified,
-            VirtualKeyCode::Power => KbKey::Power,
-            VirtualKeyCode::PrevTrack => KbKey::MediaTrackPrevious,
-            VirtualKeyCode::RAlt => KbKey::Alt,
-            VirtualKeyCode::RBracket => {
-                if !shift {
-                    KbKey::Character("]".to_string())
-                } else {
-                    KbKey::Character("}".to_string())
-                }
-            }
-            VirtualKeyCode::RControl => KbKey::Control,
-            VirtualKeyCode::RShift => KbKey::Shift,
-            VirtualKeyCode::RWin => KbKey::Meta,
-            VirtualKeyCode::Semicolon => {
-                if !shift {
-                    KbKey::Character(";".to_string())
-                } else {
-                    KbKey::Character(":".to_string())
-                }
-            }
-            VirtualKeyCode::Slash => {
-                if !shift {
-                    KbKey::Character("/".to_string())
-                } else {
-                    KbKey::Character("?".to_string())
-                }
-            }
-            VirtualKeyCode::Sleep => KbKey::Unidentified,
-            VirtualKeyCode::Stop => KbKey::MediaStop,
-            VirtualKeyCode::Sysrq => KbKey::Unidentified,
-            VirtualKeyCode::Tab => KbKey::Tab,
-            VirtualKeyCode::Underline => KbKey::Unidentified,
-            VirtualKeyCode::Unlabeled => KbKey::Unidentified,
-            VirtualKeyCode::VolumeDown => KbKey::AudioVolumeDown,
-            VirtualKeyCode::VolumeUp => KbKey::AudioVolumeUp,
-            VirtualKeyCode::Wake => KbKey::WakeUp,
-            VirtualKeyCode::WebBack => KbKey::BrowserBack,
-            VirtualKeyCode::WebFavorites => KbKey::BrowserFavorites,
-            VirtualKeyCode::WebForward => KbKey::BrowserForward,
-            VirtualKeyCode::WebHome => KbKey::BrowserHome,
-            VirtualKeyCode::WebRefresh => KbKey::BrowserRefresh,
-            VirtualKeyCode::WebSearch => KbKey::BrowserSearch,
-            VirtualKeyCode::WebStop => KbKey::BrowserStop,
-            VirtualKeyCode::Yen => KbKey::Unidentified,
-            VirtualKeyCode::Copy => KbKey::Copy,
-            VirtualKeyCode::Paste => KbKey::Paste,
-            VirtualKeyCode::Cut => KbKey::Cut,
-        }
-    } else {
-        keyboard_types::Key::Unidentified
+        winit::keyboard::Key::Character(c) => KbKey::Character(c.to_string()),
+        winit::keyboard::Key::Unidentified(_) => KbKey::Unidentified,
+        winit::keyboard::Key::Dead(_) => KbKey::Dead,
+        winit::keyboard::Key::Alt => KbKey::Alt,
+        winit::keyboard::Key::AltGraph => KbKey::AltGraph,
+        winit::keyboard::Key::CapsLock => KbKey::CapsLock,
+        winit::keyboard::Key::Control => KbKey::Control,
+        winit::keyboard::Key::Fn => KbKey::Fn,
+        winit::keyboard::Key::FnLock => KbKey::FnLock,
+        winit::keyboard::Key::NumLock => KbKey::NumLock,
+        winit::keyboard::Key::ScrollLock => KbKey::ScrollLock,
+        winit::keyboard::Key::Shift => KbKey::Shift,
+        winit::keyboard::Key::Symbol => KbKey::Symbol,
+        winit::keyboard::Key::SymbolLock => KbKey::SymbolLock,
+        winit::keyboard::Key::Hyper => KbKey::Hyper,
+        winit::keyboard::Key::Super => KbKey::Super,
+        winit::keyboard::Key::Enter => KbKey::Enter,
+        winit::keyboard::Key::Tab => KbKey::Tab,
+        winit::keyboard::Key::Space => KbKey::Character(" ".to_string()),
+        winit::keyboard::Key::ArrowDown => KbKey::ArrowDown,
+        winit::keyboard::Key::ArrowLeft => KbKey::ArrowLeft,
+        winit::keyboard::Key::ArrowRight => KbKey::ArrowRight,
+        winit::keyboard::Key::ArrowUp => KbKey::ArrowUp,
+        winit::keyboard::Key::End => KbKey::End,
+        winit::keyboard::Key::Home => KbKey::Home,
+        winit::keyboard::Key::PageDown => KbKey::PageDown,
+        winit::keyboard::Key::PageUp => KbKey::PageUp,
+        winit::keyboard::Key::Backspace => KbKey::Backspace,
+        winit::keyboard::Key::Clear => KbKey::Clear,
+        winit::keyboard::Key::Copy => KbKey::Copy,
+        winit::keyboard::Key::CrSel => KbKey::CrSel,
+        winit::keyboard::Key::Cut => KbKey::Cut,
+        winit::keyboard::Key::Delete => KbKey::Delete,
+        winit::keyboard::Key::EraseEof => KbKey::EraseEof,
+        winit::keyboard::Key::ExSel => KbKey::ExSel,
+        winit::keyboard::Key::Insert => KbKey::Insert,
+        winit::keyboard::Key::Paste => KbKey::Paste,
+        winit::keyboard::Key::Redo => KbKey::Redo,
+        winit::keyboard::Key::Undo => KbKey::Undo,
+        winit::keyboard::Key::Accept => KbKey::Accept,
+        winit::keyboard::Key::Again => KbKey::Again,
+        winit::keyboard::Key::Attn => KbKey::Attn,
+        winit::keyboard::Key::Cancel => KbKey::Cancel,
+        winit::keyboard::Key::ContextMenu => KbKey::ContextMenu,
+        winit::keyboard::Key::Escape => KbKey::Escape,
+        winit::keyboard::Key::Execute => KbKey::Execute,
+        winit::keyboard::Key::Find => KbKey::Find,
+        winit::keyboard::Key::Help => KbKey::Help,
+        winit::keyboard::Key::Pause => KbKey::Pause,
+        winit::keyboard::Key::Play => KbKey::Play,
+        winit::keyboard::Key::Props => KbKey::Props,
+        winit::keyboard::Key::Select => KbKey::Select,
+        winit::keyboard::Key::ZoomIn => KbKey::ZoomIn,
+        winit::keyboard::Key::ZoomOut => KbKey::ZoomOut,
+        winit::keyboard::Key::BrightnessDown => KbKey::BrightnessDown,
+        winit::keyboard::Key::BrightnessUp => KbKey::BrightnessUp,
+        winit::keyboard::Key::Eject => KbKey::Eject,
+        winit::keyboard::Key::LogOff => KbKey::LogOff,
+        winit::keyboard::Key::Power => KbKey::Power,
+        winit::keyboard::Key::PowerOff => KbKey::PowerOff,
+        winit::keyboard::Key::PrintScreen => KbKey::PrintScreen,
+        winit::keyboard::Key::Hibernate => KbKey::Hibernate,
+        winit::keyboard::Key::Standby => KbKey::Standby,
+        winit::keyboard::Key::WakeUp => KbKey::WakeUp,
+        winit::keyboard::Key::AllCandidates => KbKey::AllCandidates,
+        winit::keyboard::Key::Alphanumeric => KbKey::Alphanumeric,
+        winit::keyboard::Key::CodeInput => KbKey::CodeInput,
+        winit::keyboard::Key::Compose => KbKey::Compose,
+        winit::keyboard::Key::Convert => KbKey::Convert,
+        winit::keyboard::Key::FinalMode => KbKey::FinalMode,
+        winit::keyboard::Key::GroupFirst => KbKey::GroupFirst,
+        winit::keyboard::Key::GroupLast => KbKey::GroupLast,
+        winit::keyboard::Key::GroupNext => KbKey::GroupNext,
+        winit::keyboard::Key::GroupPrevious => KbKey::GroupPrevious,
+        winit::keyboard::Key::ModeChange => KbKey::ModeChange,
+        winit::keyboard::Key::NextCandidate => KbKey::NextCandidate,
+        winit::keyboard::Key::NonConvert => KbKey::NonConvert,
+        winit::keyboard::Key::PreviousCandidate => KbKey::PreviousCandidate,
+        winit::keyboard::Key::Process => KbKey::Process,
+        winit::keyboard::Key::SingleCandidate => KbKey::SingleCandidate,
+        winit::keyboard::Key::HangulMode => KbKey::HangulMode,
+        winit::keyboard::Key::HanjaMode => KbKey::HanjaMode,
+        winit::keyboard::Key::JunjaMode => KbKey::JunjaMode,
+        winit::keyboard::Key::Eisu => KbKey::Eisu,
+        winit::keyboard::Key::Hankaku => KbKey::Hankaku,
+        winit::keyboard::Key::Hiragana => KbKey::Hiragana,
+        winit::keyboard::Key::HiraganaKatakana => KbKey::HiraganaKatakana,
+        winit::keyboard::Key::KanaMode => KbKey::KanaMode,
+        winit::keyboard::Key::KanjiMode => KbKey::KanjiMode,
+        winit::keyboard::Key::Katakana => KbKey::Katakana,
+        winit::keyboard::Key::Romaji => KbKey::Romaji,
+        winit::keyboard::Key::Zenkaku => KbKey::Zenkaku,
+        winit::keyboard::Key::ZenkakuHankaku => KbKey::ZenkakuHankaku,
+        winit::keyboard::Key::Soft1 => KbKey::Soft1,
+        winit::keyboard::Key::Soft2 => KbKey::Soft2,
+        winit::keyboard::Key::Soft3 => KbKey::Soft3,
+        winit::keyboard::Key::Soft4 => KbKey::Soft4,
+        winit::keyboard::Key::ChannelDown => KbKey::ChannelDown,
+        winit::keyboard::Key::ChannelUp => KbKey::ChannelUp,
+        winit::keyboard::Key::Close => KbKey::Close,
+        winit::keyboard::Key::MailForward => KbKey::MailForward,
+        winit::keyboard::Key::MailReply => KbKey::MailReply,
+        winit::keyboard::Key::MailSend => KbKey::MailSend,
+        winit::keyboard::Key::MediaClose => KbKey::MediaClose,
+        winit::keyboard::Key::MediaFastForward => KbKey::MediaFastForward,
+        winit::keyboard::Key::MediaPause => KbKey::MediaPause,
+        winit::keyboard::Key::MediaPlay => KbKey::MediaPlay,
+        winit::keyboard::Key::MediaPlayPause => KbKey::MediaPlayPause,
+        winit::keyboard::Key::MediaRecord => KbKey::MediaRecord,
+        winit::keyboard::Key::MediaRewind => KbKey::MediaRewind,
+        winit::keyboard::Key::MediaStop => KbKey::MediaStop,
+        winit::keyboard::Key::MediaTrackNext => KbKey::MediaTrackNext,
+        winit::keyboard::Key::MediaTrackPrevious => KbKey::MediaTrackPrevious,
+        winit::keyboard::Key::New => KbKey::New,
+        winit::keyboard::Key::Open => KbKey::Open,
+        winit::keyboard::Key::Print => KbKey::Print,
+        winit::keyboard::Key::Save => KbKey::Save,
+        winit::keyboard::Key::SpellCheck => KbKey::SpellCheck,
+        winit::keyboard::Key::Key11 => KbKey::Key11,
+        winit::keyboard::Key::Key12 => KbKey::Key12,
+        winit::keyboard::Key::AudioBalanceLeft => KbKey::AudioBalanceLeft,
+        winit::keyboard::Key::AudioBalanceRight => KbKey::AudioBalanceRight,
+        winit::keyboard::Key::AudioBassBoostDown => KbKey::AudioBassBoostDown,
+        winit::keyboard::Key::AudioBassBoostToggle => KbKey::AudioBassBoostToggle,
+        winit::keyboard::Key::AudioBassBoostUp => KbKey::AudioBassBoostUp,
+        winit::keyboard::Key::AudioFaderFront => KbKey::AudioFaderFront,
+        winit::keyboard::Key::AudioFaderRear => KbKey::AudioFaderRear,
+        winit::keyboard::Key::AudioSurroundModeNext => KbKey::AudioSurroundModeNext,
+        winit::keyboard::Key::AudioTrebleDown => KbKey::AudioTrebleDown,
+        winit::keyboard::Key::AudioTrebleUp => KbKey::AudioTrebleUp,
+        winit::keyboard::Key::AudioVolumeDown => KbKey::AudioVolumeDown,
+        winit::keyboard::Key::AudioVolumeUp => KbKey::AudioVolumeUp,
+        winit::keyboard::Key::AudioVolumeMute => KbKey::AudioVolumeMute,
+        winit::keyboard::Key::MicrophoneToggle => KbKey::MicrophoneToggle,
+        winit::keyboard::Key::MicrophoneVolumeDown => KbKey::MicrophoneVolumeDown,
+        winit::keyboard::Key::MicrophoneVolumeUp => KbKey::MicrophoneVolumeUp,
+        winit::keyboard::Key::MicrophoneVolumeMute => KbKey::MicrophoneVolumeMute,
+        winit::keyboard::Key::SpeechCorrectionList => KbKey::SpeechCorrectionList,
+        winit::keyboard::Key::SpeechInputToggle => KbKey::SpeechInputToggle,
+        winit::keyboard::Key::LaunchApplication1 => KbKey::LaunchApplication1,
+        winit::keyboard::Key::LaunchApplication2 => KbKey::LaunchApplication2,
+        winit::keyboard::Key::LaunchCalendar => KbKey::LaunchCalendar,
+        winit::keyboard::Key::LaunchContacts => KbKey::LaunchContacts,
+        winit::keyboard::Key::LaunchMail => KbKey::LaunchMail,
+        winit::keyboard::Key::LaunchMediaPlayer => KbKey::LaunchMediaPlayer,
+        winit::keyboard::Key::LaunchMusicPlayer => KbKey::LaunchMusicPlayer,
+        winit::keyboard::Key::LaunchPhone => KbKey::LaunchPhone,
+        winit::keyboard::Key::LaunchScreenSaver => KbKey::LaunchScreenSaver,
+        winit::keyboard::Key::LaunchSpreadsheet => KbKey::LaunchSpreadsheet,
+        winit::keyboard::Key::LaunchWebBrowser => KbKey::LaunchWebBrowser,
+        winit::keyboard::Key::LaunchWebCam => KbKey::LaunchWebCam,
+        winit::keyboard::Key::LaunchWordProcessor => KbKey::LaunchWordProcessor,
+        winit::keyboard::Key::BrowserBack => KbKey::BrowserBack,
+        winit::keyboard::Key::BrowserFavorites => KbKey::BrowserFavorites,
+        winit::keyboard::Key::BrowserForward => KbKey::BrowserForward,
+        winit::keyboard::Key::BrowserHome => KbKey::BrowserHome,
+        winit::keyboard::Key::BrowserRefresh => KbKey::BrowserRefresh,
+        winit::keyboard::Key::BrowserSearch => KbKey::BrowserSearch,
+        winit::keyboard::Key::BrowserStop => KbKey::BrowserStop,
+        winit::keyboard::Key::AppSwitch => KbKey::AppSwitch,
+        winit::keyboard::Key::Call => KbKey::Call,
+        winit::keyboard::Key::Camera => KbKey::Camera,
+        winit::keyboard::Key::CameraFocus => KbKey::CameraFocus,
+        winit::keyboard::Key::EndCall => KbKey::EndCall,
+        winit::keyboard::Key::GoBack => KbKey::GoBack,
+        winit::keyboard::Key::GoHome => KbKey::GoHome,
+        winit::keyboard::Key::HeadsetHook => KbKey::HeadsetHook,
+        winit::keyboard::Key::LastNumberRedial => KbKey::LastNumberRedial,
+        winit::keyboard::Key::Notification => KbKey::Notification,
+        winit::keyboard::Key::MannerMode => KbKey::MannerMode,
+        winit::keyboard::Key::VoiceDial => KbKey::VoiceDial,
+        winit::keyboard::Key::TV => KbKey::TV,
+        winit::keyboard::Key::TV3DMode => KbKey::TV3DMode,
+        winit::keyboard::Key::TVAntennaCable => KbKey::TVAntennaCable,
+        winit::keyboard::Key::TVAudioDescription => KbKey::TVAudioDescription,
+        winit::keyboard::Key::TVAudioDescriptionMixDown => KbKey::TVAudioDescriptionMixDown,
+        winit::keyboard::Key::TVAudioDescriptionMixUp => KbKey::TVAudioDescriptionMixUp,
+        winit::keyboard::Key::TVContentsMenu => KbKey::TVContentsMenu,
+        winit::keyboard::Key::TVDataService => KbKey::TVDataService,
+        winit::keyboard::Key::TVInput => KbKey::TVInput,
+        winit::keyboard::Key::TVInputComponent1 => KbKey::TVInputComponent1,
+        winit::keyboard::Key::TVInputComponent2 => KbKey::TVInputComponent2,
+        winit::keyboard::Key::TVInputComposite1 => KbKey::TVInputComposite1,
+        winit::keyboard::Key::TVInputComposite2 => KbKey::TVInputComposite2,
+        winit::keyboard::Key::TVInputHDMI1 => KbKey::TVInputHDMI1,
+        winit::keyboard::Key::TVInputHDMI2 => KbKey::TVInputHDMI2,
+        winit::keyboard::Key::TVInputHDMI3 => KbKey::TVInputHDMI3,
+        winit::keyboard::Key::TVInputHDMI4 => KbKey::TVInputHDMI4,
+        winit::keyboard::Key::TVInputVGA1 => KbKey::TVInputVGA1,
+        winit::keyboard::Key::TVMediaContext => KbKey::TVMediaContext,
+        winit::keyboard::Key::TVNetwork => KbKey::TVNetwork,
+        winit::keyboard::Key::TVNumberEntry => KbKey::TVNumberEntry,
+        winit::keyboard::Key::TVPower => KbKey::TVPower,
+        winit::keyboard::Key::TVRadioService => KbKey::TVRadioService,
+        winit::keyboard::Key::TVSatellite => KbKey::TVSatellite,
+        winit::keyboard::Key::TVSatelliteBS => KbKey::TVSatelliteBS,
+        winit::keyboard::Key::TVSatelliteCS => KbKey::TVSatelliteCS,
+        winit::keyboard::Key::TVSatelliteToggle => KbKey::TVSatelliteToggle,
+        winit::keyboard::Key::TVTerrestrialAnalog => KbKey::TVTerrestrialAnalog,
+        winit::keyboard::Key::TVTerrestrialDigital => KbKey::TVTerrestrialDigital,
+        winit::keyboard::Key::TVTimer => KbKey::TVTimer,
+        winit::keyboard::Key::AVRInput => KbKey::AVRInput,
+        winit::keyboard::Key::AVRPower => KbKey::AVRPower,
+        winit::keyboard::Key::ColorF0Red => KbKey::ColorF0Red,
+        winit::keyboard::Key::ColorF1Green => KbKey::ColorF1Green,
+        winit::keyboard::Key::ColorF2Yellow => KbKey::ColorF2Yellow,
+        winit::keyboard::Key::ColorF3Blue => KbKey::ColorF3Blue,
+        winit::keyboard::Key::ColorF4Grey => KbKey::ColorF4Grey,
+        winit::keyboard::Key::ColorF5Brown => KbKey::ColorF5Brown,
+        winit::keyboard::Key::ClosedCaptionToggle => KbKey::ClosedCaptionToggle,
+        winit::keyboard::Key::Dimmer => KbKey::Dimmer,
+        winit::keyboard::Key::DisplaySwap => KbKey::DisplaySwap,
+        winit::keyboard::Key::DVR => KbKey::DVR,
+        winit::keyboard::Key::Exit => KbKey::Exit,
+        winit::keyboard::Key::FavoriteClear0 => KbKey::FavoriteClear0,
+        winit::keyboard::Key::FavoriteClear1 => KbKey::FavoriteClear1,
+        winit::keyboard::Key::FavoriteClear2 => KbKey::FavoriteClear2,
+        winit::keyboard::Key::FavoriteClear3 => KbKey::FavoriteClear3,
+        winit::keyboard::Key::FavoriteRecall0 => KbKey::FavoriteRecall0,
+        winit::keyboard::Key::FavoriteRecall1 => KbKey::FavoriteRecall1,
+        winit::keyboard::Key::FavoriteRecall2 => KbKey::FavoriteRecall2,
+        winit::keyboard::Key::FavoriteRecall3 => KbKey::FavoriteRecall3,
+        winit::keyboard::Key::FavoriteStore0 => KbKey::FavoriteStore0,
+        winit::keyboard::Key::FavoriteStore1 => KbKey::FavoriteStore1,
+        winit::keyboard::Key::FavoriteStore2 => KbKey::FavoriteStore2,
+        winit::keyboard::Key::FavoriteStore3 => KbKey::FavoriteStore3,
+        winit::keyboard::Key::Guide => KbKey::Guide,
+        winit::keyboard::Key::GuideNextDay => KbKey::GuideNextDay,
+        winit::keyboard::Key::GuidePreviousDay => KbKey::GuidePreviousDay,
+        winit::keyboard::Key::Info => KbKey::Info,
+        winit::keyboard::Key::InstantReplay => KbKey::InstantReplay,
+        winit::keyboard::Key::Link => KbKey::Link,
+        winit::keyboard::Key::ListProgram => KbKey::ListProgram,
+        winit::keyboard::Key::LiveContent => KbKey::LiveContent,
+        winit::keyboard::Key::Lock => KbKey::Lock,
+        winit::keyboard::Key::MediaApps => KbKey::MediaApps,
+        winit::keyboard::Key::MediaAudioTrack => KbKey::MediaAudioTrack,
+        winit::keyboard::Key::MediaLast => KbKey::MediaLast,
+        winit::keyboard::Key::MediaSkipBackward => KbKey::MediaSkipBackward,
+        winit::keyboard::Key::MediaSkipForward => KbKey::MediaSkipForward,
+        winit::keyboard::Key::MediaStepBackward => KbKey::MediaStepBackward,
+        winit::keyboard::Key::MediaStepForward => KbKey::MediaStepForward,
+        winit::keyboard::Key::MediaTopMenu => KbKey::MediaTopMenu,
+        winit::keyboard::Key::NavigateIn => KbKey::NavigateIn,
+        winit::keyboard::Key::NavigateNext => KbKey::NavigateNext,
+        winit::keyboard::Key::NavigateOut => KbKey::NavigateOut,
+        winit::keyboard::Key::NavigatePrevious => KbKey::NavigatePrevious,
+        winit::keyboard::Key::NextFavoriteChannel => KbKey::NextFavoriteChannel,
+        winit::keyboard::Key::NextUserProfile => KbKey::NextUserProfile,
+        winit::keyboard::Key::OnDemand => KbKey::OnDemand,
+        winit::keyboard::Key::Pairing => KbKey::Pairing,
+        winit::keyboard::Key::PinPDown => KbKey::PinPDown,
+        winit::keyboard::Key::PinPMove => KbKey::PinPMove,
+        winit::keyboard::Key::PinPToggle => KbKey::PinPToggle,
+        winit::keyboard::Key::PinPUp => KbKey::PinPUp,
+        winit::keyboard::Key::PlaySpeedDown => KbKey::PlaySpeedDown,
+        winit::keyboard::Key::PlaySpeedReset => KbKey::PlaySpeedReset,
+        winit::keyboard::Key::PlaySpeedUp => KbKey::PlaySpeedUp,
+        winit::keyboard::Key::RandomToggle => KbKey::RandomToggle,
+        winit::keyboard::Key::RcLowBattery => KbKey::RcLowBattery,
+        winit::keyboard::Key::RecordSpeedNext => KbKey::RecordSpeedNext,
+        winit::keyboard::Key::RfBypass => KbKey::RfBypass,
+        winit::keyboard::Key::ScanChannelsToggle => KbKey::ScanChannelsToggle,
+        winit::keyboard::Key::ScreenModeNext => KbKey::ScreenModeNext,
+        winit::keyboard::Key::Settings => KbKey::Settings,
+        winit::keyboard::Key::SplitScreenToggle => KbKey::SplitScreenToggle,
+        winit::keyboard::Key::STBInput => KbKey::STBInput,
+        winit::keyboard::Key::STBPower => KbKey::STBPower,
+        winit::keyboard::Key::Subtitle => KbKey::Subtitle,
+        winit::keyboard::Key::Teletext => KbKey::Teletext,
+        winit::keyboard::Key::VideoModeNext => KbKey::VideoModeNext,
+        winit::keyboard::Key::Wink => KbKey::Wink,
+        winit::keyboard::Key::ZoomToggle => KbKey::ZoomToggle,
+        winit::keyboard::Key::F1 => KbKey::F1,
+        winit::keyboard::Key::F2 => KbKey::F2,
+        winit::keyboard::Key::F3 => KbKey::F3,
+        winit::keyboard::Key::F4 => KbKey::F4,
+        winit::keyboard::Key::F5 => KbKey::F5,
+        winit::keyboard::Key::F6 => KbKey::F6,
+        winit::keyboard::Key::F7 => KbKey::F7,
+        winit::keyboard::Key::F8 => KbKey::F8,
+        winit::keyboard::Key::F9 => KbKey::F9,
+        winit::keyboard::Key::F10 => KbKey::F10,
+        winit::keyboard::Key::F11 => KbKey::F11,
+        winit::keyboard::Key::F12 => KbKey::F12,
+        winit::keyboard::Key::F13 => KbKey::Unidentified,
+        winit::keyboard::Key::F14 => KbKey::Unidentified,
+        winit::keyboard::Key::F15 => KbKey::Unidentified,
+        winit::keyboard::Key::F16 => KbKey::Unidentified,
+        winit::keyboard::Key::F17 => KbKey::Unidentified,
+        winit::keyboard::Key::F18 => KbKey::Unidentified,
+        winit::keyboard::Key::F19 => KbKey::Unidentified,
+        winit::keyboard::Key::F20 => KbKey::Unidentified,
+        winit::keyboard::Key::F21 => KbKey::Unidentified,
+        winit::keyboard::Key::F22 => KbKey::Unidentified,
+        winit::keyboard::Key::F23 => KbKey::Unidentified,
+        winit::keyboard::Key::F24 => KbKey::Unidentified,
+        winit::keyboard::Key::F25 => KbKey::Unidentified,
+        winit::keyboard::Key::F26 => KbKey::Unidentified,
+        winit::keyboard::Key::F27 => KbKey::Unidentified,
+        winit::keyboard::Key::F28 => KbKey::Unidentified,
+        winit::keyboard::Key::F29 => KbKey::Unidentified,
+        winit::keyboard::Key::F30 => KbKey::Unidentified,
+        winit::keyboard::Key::F31 => KbKey::Unidentified,
+        winit::keyboard::Key::F32 => KbKey::Unidentified,
+        winit::keyboard::Key::F33 => KbKey::Unidentified,
+        winit::keyboard::Key::F34 => KbKey::Unidentified,
+        winit::keyboard::Key::F35 => KbKey::Unidentified,
+        _ => KbKey::Unidentified,
     }
 }

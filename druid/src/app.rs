@@ -28,8 +28,8 @@ use crate::{AppDelegate, Data, Env, Event, LocalizedString, Menu, MouseEvent, Wi
 
 use druid_shell::kurbo::Vec2;
 use druid_shell::{
-    winit_key, winit_keycode, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons,
-    TimerToken, WindowState, WinitEvent,
+    winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, TimerToken,
+    WindowState, WinitEvent,
 };
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -280,211 +280,203 @@ impl<T: Data> AppLauncher<T> {
 
         let mut timer_tokens = BTreeMap::new();
 
-        event_loop.run(move |event, _, control_flow| {
-            match event {
-                winit::event::Event::NewEvents(cause) => match cause {
-                    winit::event::StartCause::Init => {
+        event_loop.run(move |event, _, control_flow| match event {
+            winit::event::Event::NewEvents(cause) => match cause {
+                winit::event::StartCause::Init => {
+                    *control_flow = ControlFlow::Wait;
+                }
+                winit::event::StartCause::ResumeTimeReached {
+                    start,
+                    requested_resume,
+                } => {
+                    if let Some((window_id, token)) = timer_tokens.remove(&requested_resume) {
+                        state.do_winit_window_event(Event::Timer(token), &window_id);
+                    }
+                    if let Some(instant) = timer_tokens.keys().next() {
+                        *control_flow = ControlFlow::WaitUntil(*instant);
+                    } else {
                         *control_flow = ControlFlow::Wait;
                     }
-                    winit::event::StartCause::ResumeTimeReached {
-                        start,
-                        requested_resume,
-                    } => {
-                        if let Some((window_id, token)) = timer_tokens.remove(&requested_resume) {
-                            state.do_winit_window_event(Event::Timer(token), &window_id);
-                        }
-                        if let Some(instant) = timer_tokens.keys().next() {
-                            *control_flow = ControlFlow::WaitUntil(*instant);
-                        } else {
-                            *control_flow = ControlFlow::Wait;
-                        }
+                }
+                winit::event::StartCause::WaitCancelled {
+                    start,
+                    requested_resume,
+                } => {}
+                _ => (),
+            },
+            winit::event::Event::MainEventsCleared => {}
+            winit::event::Event::RedrawEventsCleared => {}
+            winit::event::Event::UserEvent(event) => match event {
+                WinitEvent::Idle(token) => {
+                    state.idle(token);
+                }
+                WinitEvent::Timer(window_id, token, deadline) => {
+                    let instant = std::time::Instant::now() + deadline;
+                    timer_tokens.insert(instant, (window_id, token));
+                    let instant = timer_tokens.keys().next().unwrap();
+                    *control_flow = ControlFlow::WaitUntil(*instant);
+                }
+            },
+            winit::event::Event::WindowEvent { window_id, event } => match event {
+                winit::event::WindowEvent::ScaleFactorChanged {
+                    scale_factor,
+                    new_inner_size,
+                } => {
+                    let size = Size::new(new_inner_size.width.into(), new_inner_size.height.into());
+                    let event = Event::WindowSize(size, Some(scale_factor));
+                    state.do_winit_window_event(event, &window_id);
+                }
+                winit::event::WindowEvent::Resized(size) => {
+                    let size = Size::new(size.width.into(), size.height.into());
+                    let event = Event::WindowSize(size, None);
+                    state.do_winit_window_event(event, &window_id);
+                }
+                winit::event::WindowEvent::ModifiersChanged(winit_mods) => {
+                    let mut mods = Modifiers::empty();
+                    if winit_mods.shift_key() {
+                        mods.set(Modifiers::SHIFT, true);
                     }
-                    winit::event::StartCause::WaitCancelled {
-                        start,
-                        requested_resume,
-                    } => {}
-                    _ => (),
-                },
-                winit::event::Event::MainEventsCleared => {}
-                winit::event::Event::RedrawEventsCleared => {}
-                winit::event::Event::UserEvent(event) => match event {
-                    WinitEvent::Idle(token) => {
-                        state.idle(token);
+                    if winit_mods.control_key() {
+                        mods.set(Modifiers::CONTROL, true);
                     }
-                    WinitEvent::Timer(window_id, token, deadline) => {
-                        let instant = std::time::Instant::now() + deadline;
-                        timer_tokens.insert(instant, (window_id, token));
-                        let instant = timer_tokens.keys().next().unwrap();
-                        *control_flow = ControlFlow::WaitUntil(*instant);
+                    if winit_mods.alt_key() {
+                        mods.set(Modifiers::ALT, true);
                     }
-                },
-                winit::event::Event::WindowEvent { window_id, event } => match event {
-                    winit::event::WindowEvent::ScaleFactorChanged {
-                        scale_factor,
-                        new_inner_size,
-                    } => {
-                        let size =
-                            Size::new(new_inner_size.width.into(), new_inner_size.height.into());
-                        let event = Event::WindowSize(size, Some(scale_factor));
-                        state.do_winit_window_event(event, &window_id);
+                    if winit_mods.super_key() {
+                        mods.set(Modifiers::META, true);
                     }
-                    winit::event::WindowEvent::Resized(size) => {
-                        let size = Size::new(size.width.into(), size.height.into());
-                        let event = Event::WindowSize(size, None);
-                        state.do_winit_window_event(event, &window_id);
-                    }
-                    winit::event::WindowEvent::ModifiersChanged(winit_mods) => {
-                        let mut mods = Modifiers::empty();
-                        if winit_mods.shift() {
-                            mods.set(Modifiers::SHIFT, true);
-                        }
-                        if winit_mods.ctrl() {
-                            mods.set(Modifiers::CONTROL, true);
-                        }
-                        if winit_mods.alt() {
-                            mods.set(Modifiers::ALT, true);
-                        }
-                        if winit_mods.logo() {
-                            mods.set(Modifiers::META, true);
-                        }
 
-                        state.set_mods(&window_id, mods);
-                    }
-                    winit::event::WindowEvent::MouseWheel { delta, .. } => {
-                        let scale = state.get_scale(&window_id).unwrap_or(1.0);
-                        let mods = state.get_mods(&window_id).unwrap_or(Modifiers::empty());
-                        let buttons = state
-                            .get_mouse_buttons(&window_id)
-                            .unwrap_or(MouseButtons::new());
-                        let delta = match delta {
-                            winit::event::MouseScrollDelta::LineDelta(x, y) => {
-                                Vec2::new(x as f64 * 32.0, -y as f64 * 32.0)
-                            }
-                            winit::event::MouseScrollDelta::PixelDelta(pos) => {
-                                Vec2::new(pos.x / scale, -pos.y / scale)
-                            }
-                        };
-                        let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
-                        let mouse_event = MouseEvent {
-                            pos,
-                            window_pos: pos,
-                            buttons,
-                            mods,
-                            count: 0,
-                            focus: false,
-                            button: MouseButton::None,
-                            wheel_delta: delta,
-                        };
-                        let event = Event::Wheel(mouse_event);
-                        state.do_winit_window_event(event, &window_id);
-                    }
-                    winit::event::WindowEvent::CursorMoved {
-                        device_id,
-                        position,
-                        modifiers,
-                    } => {
-                        let scale = state.get_scale(&window_id).unwrap_or(1.0);
-                        let mods = if let Some(mods) = state.get_mods(&window_id) {
-                            mods
-                        } else {
-                            Modifiers::empty()
-                        };
-                        let pos = Point::new(position.x / scale, position.y / scale);
-                        let buttons = state
-                            .get_mouse_buttons(&window_id)
-                            .unwrap_or(MouseButtons::new());
-                        let mouse_event = MouseEvent {
-                            pos,
-                            window_pos: pos,
-                            buttons,
-                            mods,
-                            count: 0,
-                            focus: false,
-                            button: MouseButton::None,
-                            wheel_delta: Vec2::ZERO,
-                        };
-                        let event = Event::MouseMove(mouse_event);
-                        state.do_winit_window_event(event, &window_id);
-                    }
-                    winit::event::WindowEvent::MouseInput {
-                        device_id,
-                        state: mouse_state,
-                        button,
-                        modifiers,
-                    } => {
-                        let mods = if let Some(mods) = state.get_mods(&window_id) {
-                            mods
-                        } else {
-                            Modifiers::empty()
-                        };
-                        let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
-                        let mut buttons = state
-                            .get_mouse_buttons(&window_id)
-                            .unwrap_or(MouseButtons::new());
-                        let button = match button {
-                            winit::event::MouseButton::Left => MouseButton::Left,
-                            winit::event::MouseButton::Right => MouseButton::Right,
-                            winit::event::MouseButton::Middle => MouseButton::Middle,
-                            winit::event::MouseButton::Other(_) => MouseButton::None,
-                        };
-                        match mouse_state {
-                            winit::event::ElementState::Pressed => buttons.insert(button),
-                            winit::event::ElementState::Released => buttons.remove(button),
+                    state.set_mods(&window_id, mods);
+                }
+                winit::event::WindowEvent::MouseWheel { delta, .. } => {
+                    let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                    let mods = state.get_mods(&window_id).unwrap_or(Modifiers::empty());
+                    let buttons = state
+                        .get_mouse_buttons(&window_id)
+                        .unwrap_or(MouseButtons::new());
+                    let delta = match delta {
+                        winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                            Vec2::new(x as f64 * 32.0, -y as f64 * 32.0)
                         }
-                        let mouse_event = MouseEvent {
-                            pos,
-                            window_pos: pos,
-                            buttons,
-                            mods,
-                            count: 0,
-                            focus: false,
-                            button,
-                            wheel_delta: Vec2::ZERO,
-                        };
-                        let event = match mouse_state {
-                            winit::event::ElementState::Pressed => Event::MouseDown(mouse_event),
-                            winit::event::ElementState::Released => Event::MouseUp(mouse_event),
-                        };
-                        state.do_winit_window_event(event, &window_id);
+                        winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                            Vec2::new(pos.x / scale, -pos.y / scale)
+                        }
+                    };
+                    let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
+                    let mouse_event = MouseEvent {
+                        pos,
+                        window_pos: pos,
+                        buttons,
+                        mods,
+                        count: 0,
+                        focus: false,
+                        button: MouseButton::None,
+                        wheel_delta: delta,
+                    };
+                    let event = Event::Wheel(mouse_event);
+                    state.do_winit_window_event(event, &window_id);
+                }
+                winit::event::WindowEvent::CursorMoved {
+                    device_id,
+                    position,
+                    modifiers,
+                } => {
+                    let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                    let mods = if let Some(mods) = state.get_mods(&window_id) {
+                        mods
+                    } else {
+                        Modifiers::empty()
+                    };
+                    let pos = Point::new(position.x / scale, position.y / scale);
+                    let buttons = state
+                        .get_mouse_buttons(&window_id)
+                        .unwrap_or(MouseButtons::new());
+                    let mouse_event = MouseEvent {
+                        pos,
+                        window_pos: pos,
+                        buttons,
+                        mods,
+                        count: 0,
+                        focus: false,
+                        button: MouseButton::None,
+                        wheel_delta: Vec2::ZERO,
+                    };
+                    let event = Event::MouseMove(mouse_event);
+                    state.do_winit_window_event(event, &window_id);
+                }
+                winit::event::WindowEvent::MouseInput {
+                    device_id,
+                    state: mouse_state,
+                    button,
+                    modifiers,
+                } => {
+                    let mods = if let Some(mods) = state.get_mods(&window_id) {
+                        mods
+                    } else {
+                        Modifiers::empty()
+                    };
+                    let pos = state.get_mouse_pos(&window_id).unwrap_or(Point::ZERO);
+                    let mut buttons = state
+                        .get_mouse_buttons(&window_id)
+                        .unwrap_or(MouseButtons::new());
+                    let button = match button {
+                        winit::event::MouseButton::Left => MouseButton::Left,
+                        winit::event::MouseButton::Right => MouseButton::Right,
+                        winit::event::MouseButton::Middle => MouseButton::Middle,
+                        winit::event::MouseButton::Other(_) => MouseButton::None,
+                    };
+                    match mouse_state {
+                        winit::event::ElementState::Pressed => buttons.insert(button),
+                        winit::event::ElementState::Released => buttons.remove(button),
                     }
-                    winit::event::WindowEvent::KeyboardInput {
-                        input,
-                        device_id,
-                        is_synthetic,
-                    } => {
-                        // println!("keyboard input {:?}", input);
-                        let mods = if let Some(mods) = state.get_mods(&window_id) {
-                            mods
-                        } else {
-                            Modifiers::empty()
-                        };
-                        let key_state = match input.state {
-                            winit::event::ElementState::Pressed => KeyState::Down,
-                            winit::event::ElementState::Released => KeyState::Up,
-                        };
-                        let mut key_event = KeyEvent::default();
-                        key_event.state = key_state;
-                        key_event.mods = mods;
-                        key_event.key = winit_key(&input, mods.shift());
-                        key_event.code = winit_keycode(
-                            input
-                                .virtual_keycode
-                                .as_ref()
-                                .unwrap_or(&winit::event::VirtualKeyCode::Sysrq),
-                        );
-                        let event = match input.state {
-                            winit::event::ElementState::Pressed => Event::KeyDown(key_event),
-                            winit::event::ElementState::Released => Event::KeyUp(key_event),
-                        };
-                        state.do_winit_window_event(event, &window_id);
-                    }
-                    _ => (),
-                },
-                winit::event::Event::RedrawRequested(window_id) => {
-                    state.paint_winit_window(&window_id);
+                    let mouse_event = MouseEvent {
+                        pos,
+                        window_pos: pos,
+                        buttons,
+                        mods,
+                        count: 0,
+                        focus: false,
+                        button,
+                        wheel_delta: Vec2::ZERO,
+                    };
+                    let event = match mouse_state {
+                        winit::event::ElementState::Pressed => Event::MouseDown(mouse_event),
+                        winit::event::ElementState::Released => Event::MouseUp(mouse_event),
+                    };
+                    state.do_winit_window_event(event, &window_id);
+                }
+                winit::event::WindowEvent::KeyboardInput {
+                    event,
+                    device_id,
+                    is_synthetic,
+                } => {
+                    let mods = if let Some(mods) = state.get_mods(&window_id) {
+                        mods
+                    } else {
+                        Modifiers::empty()
+                    };
+                    let key_state = match event.state {
+                        winit::event::ElementState::Pressed => KeyState::Down,
+                        winit::event::ElementState::Released => KeyState::Up,
+                    };
+                    let mut key_event = KeyEvent::default();
+                    key_event.state = key_state;
+                    key_event.key = winit_key(event.logical_key);
+                    key_event.code = event.physical_key;
+                    key_event.mods = mods;
+                    key_event.repeat = event.repeat;
+                    let event = match key_event.state {
+                        KeyState::Down => Event::KeyDown(key_event),
+                        KeyState::Up => Event::KeyUp(key_event),
+                    };
+                    state.do_winit_window_event(event, &window_id);
                 }
                 _ => (),
+            },
+            winit::event::Event::RedrawRequested(window_id) => {
+                state.paint_winit_window(&window_id);
             }
+            _ => (),
         });
 
         // let handler = AppHandler::new(state);
