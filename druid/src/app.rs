@@ -333,9 +333,16 @@ impl<T: Data> AppLauncher<T> {
                         *control_flow = ControlFlow::Exit;
                     }
                 }
+                winit::event::WindowEvent::Moved(pos) => {
+                    let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                    let pos = Point::new(pos.x as f64 / scale, pos.y as f64 / scale);
+                    let event = Event::WindowMoved(pos);
+                    state.do_winit_window_event(event, &window_id);
+                }
                 winit::event::WindowEvent::Resized(size) => {
                     let size = Size::new(size.width.into(), size.height.into());
-                    let event = Event::WindowSize(size, None);
+                    let scale = state.get_scale(&window_id).unwrap_or(1.0);
+                    let event = Event::WindowSize(size, Some(scale));
                     state.do_winit_window_event(event, &window_id);
                 }
                 winit::event::WindowEvent::ModifiersChanged(winit_mods) => {

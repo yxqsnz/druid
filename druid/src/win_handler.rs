@@ -915,6 +915,7 @@ impl<T: Data> AppState<T> {
     pub(crate) fn request_close_wint_window(&mut self, id: &winit::window::WindowId) {
         let window_id = { self.inner.borrow().winit_windows.get(id).map(|w| w.clone()) };
         if let Some(window_id) = window_id {
+            self.do_window_event(Event::WindowCloseRequested, window_id);
             self.inner.borrow_mut().request_close_window(window_id);
         }
     }

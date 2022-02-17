@@ -732,8 +732,9 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
             }
             Event::WindowSize(_, _) => {
                 self.state.needs_layout = true;
-                ctx.is_root
+                true
             }
+            Event::WindowMoved(_) => true,
             Event::MouseDown(mouse_event) => {
                 WidgetPod::set_hot_state(
                     &mut self.inner,

@@ -81,6 +81,8 @@ pub enum Event {
     /// in the WindowPod, but after that it might be considered better
     /// to just handle it in `layout`.
     WindowSize(Size, Option<f64>),
+    /// Called when the window get moved
+    WindowMoved(Point),
     /// Called when a mouse button is pressed.
     MouseDown(MouseEvent),
     /// Called when a mouse button is released.
@@ -432,6 +434,7 @@ impl Event {
             | Event::WindowCloseRequested
             | Event::WindowDisconnected
             | Event::WindowSize(_, _)
+            | Event::WindowMoved(_)
             | Event::Timer(_)
             | Event::AnimFrame(_)
             | Event::Command(_)
