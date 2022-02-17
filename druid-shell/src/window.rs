@@ -40,6 +40,7 @@ use winit::window::CursorIcon;
 pub enum WinitEvent {
     Idle(IdleToken),
     Timer(winit::window::WindowId, TimerToken, std::time::Duration),
+    NewWindow,
 }
 
 /// A token that uniquely identifies a running timer.

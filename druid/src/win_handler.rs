@@ -18,6 +18,7 @@ use std::any::{Any, TypeId};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::kurbo::Size;
 use crate::piet::Piet;
@@ -40,7 +41,7 @@ use crate::app::{PendingWindow, WindowConfig};
 use crate::command::sys as sys_cmd;
 use druid_shell::kurbo::Point;
 use druid_shell::{Modifiers, MouseButtons, WindowBuilder, WinitEvent};
-use winit::event_loop::{EventLoop, EventLoopProxy};
+use winit::event_loop::{EventLoop, EventLoopProxy, EventLoopWindowTarget};
 
 pub(crate) const RUN_COMMANDS_TOKEN: IdleToken = IdleToken::new(1);
 
@@ -94,6 +95,7 @@ pub(crate) struct InnerAppState<T> {
     ext_event_host: ExtEventHost,
     pub(crate) windows: Windows<T>,
     pub(crate) winit_windows: HashMap<winit::window::WindowId, WindowId>,
+    pub(crate) new_window: Option<WindowDesc<T>>,
     /// the application-level menu, only set on macos and only if there
     /// are no open windows.
     root_menu: Option<MenuManager<T>>,
@@ -104,6 +106,7 @@ pub(crate) struct InnerAppState<T> {
     pub(crate) env: Env,
     pub(crate) data: T,
     ime_focus_change: Option<Box<dyn Fn()>>,
+    pub(crate) event_proxy: Arc<EventLoopProxy<WinitEvent>>,
 }
 
 /// All active windows.
@@ -160,6 +163,7 @@ impl<T> AppState<T> {
         env: Env,
         delegate: Option<Box<dyn AppDelegate<T>>>,
         ext_event_host: ExtEventHost,
+        event_proxy: Arc<EventLoopProxy<WinitEvent>>,
     ) -> Self {
         let inner = Rc::new(RefCell::new(InnerAppState {
             app,
@@ -167,6 +171,7 @@ impl<T> AppState<T> {
             command_queue: VecDeque::new(),
             file_dialogs: HashMap::new(),
             winit_windows: HashMap::new(),
+            new_window: None,
             root_menu: None,
             menu_window: None,
             ext_event_host,
@@ -174,6 +179,7 @@ impl<T> AppState<T> {
             env,
             windows: Windows::default(),
             ime_focus_change: None,
+            event_proxy,
         }));
 
         AppState { inner }
@@ -651,6 +657,13 @@ impl<T: Data> AppState<T> {
         None
     }
 
+    pub(crate) fn create_new_windows(&self, window_target: &EventLoopWindowTarget<WinitEvent>) {
+        let desc = { self.inner.borrow_mut().new_window.take() };
+        if let Some(desc) = desc {
+            desc.build_native(&self, window_target);
+        }
+    }
+
     pub(crate) fn do_winit_window_event(
         &mut self,
         event: Event,
@@ -875,11 +888,15 @@ impl<T: Data> AppState<T> {
     }
 
     fn new_window(&mut self, cmd: Command) -> Result<(), Box<dyn std::error::Error>> {
-        // let desc = cmd.get_unchecked(sys_cmd::NEW_WINDOW);
+        let desc = cmd.get_unchecked(sys_cmd::NEW_WINDOW);
         // // The NEW_WINDOW command is private and only druid can receive it by normal means,
         // // thus unwrapping can be considered safe and deserves a panic.
-        // let desc = desc.take().unwrap().downcast::<WindowDesc<T>>().unwrap();
-        // let window = desc.build_native(self)?;
+        let desc = desc.take().unwrap().downcast::<WindowDesc<T>>().unwrap();
+        self.inner.borrow_mut().new_window = Some(*desc);
+        self.inner
+            .borrow()
+            .event_proxy
+            .send_event(WinitEvent::NewWindow);
         // window.show();
         Ok(())
     }
@@ -913,7 +930,13 @@ impl<T: Data> AppState<T> {
     }
 
     pub(crate) fn request_close_wint_window(&mut self, id: &winit::window::WindowId) {
-        let window_id = { self.inner.borrow().winit_windows.get(id).map(|w| w.clone()) };
+        let window_id = {
+            self.inner
+                .borrow_mut()
+                .winit_windows
+                .remove(id)
+                .map(|w| w.clone())
+        };
         if let Some(window_id) = window_id {
             self.do_window_event(Event::WindowCloseRequested, window_id);
             self.inner.borrow_mut().request_close_window(window_id);
@@ -972,11 +995,11 @@ impl<T: Data> AppState<T> {
     }
 
     pub(crate) fn build_native_window(
-        &mut self,
+        &self,
         id: WindowId,
         mut pending: PendingWindow<T>,
         config: WindowConfig,
-        event_loop: &EventLoop<WinitEvent>,
+        window_target: &EventLoopWindowTarget<WinitEvent>,
     ) -> Result<WindowHandle, PlatformError> {
         let builder = WindowBuilder::new(self.app());
         let builder = config.apply_to_builder(builder);
@@ -999,7 +1022,7 @@ impl<T: Data> AppState<T> {
         let mut handler = DruidHandler::new_shared((*self).clone(), id);
 
         self.add_window(id, pending);
-        let result = builder.build(event_loop);
+        let result = builder.build(window_target);
         match &result {
             Ok(handle) => {
                 handler.connect(&handle);

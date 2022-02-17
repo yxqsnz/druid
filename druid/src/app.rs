@@ -31,7 +31,7 @@ use druid_shell::{
     winit_key, KbKey, KeyEvent, KeyState, Modifiers, MouseButton, MouseButtons, TimerToken,
     WindowState, WinitEvent,
 };
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget};
 
 /// A function that modifies the initial environment.
 type EnvSetupFn<T> = dyn FnOnce(&mut Env, &T);
@@ -254,7 +254,7 @@ impl<T: Data> AppLauncher<T> {
         let event_loop = EventLoop::with_user_event();
         let event_proxy = Arc::new(event_loop.create_proxy());
 
-        let app = Application::new(event_proxy)?;
+        let app = Application::new(event_proxy.clone())?;
 
         let mut env = self
             .l10n_resources
@@ -271,6 +271,7 @@ impl<T: Data> AppLauncher<T> {
             env,
             self.delegate.take(),
             self.ext_event_host,
+            event_proxy,
         );
 
         for desc in self.windows {
@@ -280,7 +281,7 @@ impl<T: Data> AppLauncher<T> {
 
         let mut timer_tokens = BTreeMap::new();
 
-        event_loop.run(move |event, _, control_flow| match event {
+        event_loop.run(move |event, event_loop, control_flow| match event {
             winit::event::Event::NewEvents(cause) => match cause {
                 winit::event::StartCause::Init => {
                     *control_flow = ControlFlow::Wait;
@@ -307,6 +308,9 @@ impl<T: Data> AppLauncher<T> {
             winit::event::Event::MainEventsCleared => {}
             winit::event::Event::RedrawEventsCleared => {}
             winit::event::Event::UserEvent(event) => match event {
+                WinitEvent::NewWindow => {
+                    state.create_new_windows(event_loop);
+                }
                 WinitEvent::Idle(token) => {
                     state.idle(token);
                 }
@@ -846,9 +850,9 @@ impl<T: Data> WindowDesc<T> {
     /// Attempt to create a platform window from this `WindowDesc`.
     pub(crate) fn build_native(
         self,
-        state: &mut AppState<T>,
-        event_loop: &EventLoop<WinitEvent>,
+        state: &AppState<T>,
+        window_target: &EventLoopWindowTarget<WinitEvent>,
     ) -> Result<WindowHandle, PlatformError> {
-        state.build_native_window(self.id, self.pending, self.config, event_loop)
+        state.build_native_window(self.id, self.pending, self.config, window_target)
     }
 }
