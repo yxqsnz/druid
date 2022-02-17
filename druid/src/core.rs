@@ -734,6 +734,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
                 self.state.needs_layout = true;
                 true
             }
+            Event::ApplicationQuit => true,
             Event::WindowMoved(_) => true,
             Event::MouseDown(mouse_event) => {
                 WidgetPod::set_hot_state(
