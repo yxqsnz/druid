@@ -345,6 +345,7 @@ impl<T: Data> InnerAppState<T> {
 
     fn paint(&mut self, window_id: WindowId) {
         if let Some(win) = self.windows.get_mut(window_id) {
+            win.prepare_paint(&mut self.command_queue, &mut self.data, &self.env);
             win.do_paint(&mut self.command_queue, &self.data, &self.env);
         }
     }
